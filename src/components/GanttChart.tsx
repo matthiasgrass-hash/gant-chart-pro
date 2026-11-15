@@ -150,7 +150,7 @@ export function GanttChart(props: Props) {
           <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
         </marker>
         <marker id="arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="#5b2aa5" />
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#6022a7" />
         </marker>
       </defs>
 
@@ -218,7 +218,7 @@ export function GanttChart(props: Props) {
           const d = dependencyPath(a.x + a.width, y1, b.x, y2);
           const active = selectedId === t.id || selectedId === pred.id;
           const late = toDayNumber(t.start) <= toDayNumber(pred.end);
-          const color = late ? '#dc2626' : active ? '#5b2aa5' : '#64748b';
+          const color = late ? '#dc2626' : active ? '#6022a7' : '#64748b';
           return (
             <g key={`dep-${pred.id}-${t.id}`} className="dependency">
               <path d={d} fill="none" stroke={color} strokeWidth={active ? 2 : 1.5} markerEnd={`url(#${active ? 'arrow-active' : 'arrow'})`} />
@@ -319,7 +319,7 @@ export function GanttChart(props: Props) {
               cy={y + BAR_HEIGHT / 2}
               r={5}
               fill="#ffffff"
-              stroke="#5b2aa5"
+              stroke="#6022a7"
               strokeWidth={2}
               opacity={0}
               style={{ cursor: 'crosshair' }}
@@ -332,7 +332,7 @@ export function GanttChart(props: Props) {
       })}
 
       {drag?.kind === 'link' && (
-        <line x1={drag.x1} y1={drag.y1} x2={drag.x} y2={drag.y} stroke="#5b2aa5" strokeWidth={2} strokeDasharray="5 4" markerEnd="url(#arrow-active)" pointerEvents="none" />
+        <line x1={drag.x1} y1={drag.y1} x2={drag.x} y2={drag.y} stroke="#6022a7" strokeWidth={2} strokeDasharray="5 4" markerEnd="url(#arrow-active)" pointerEvents="none" />
       )}
 
       {tasks.length === 0 && (

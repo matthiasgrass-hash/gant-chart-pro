@@ -31,8 +31,8 @@ export function Toolbar(p: Props) {
           className="brand-logo"
           src="./ge-logo.png"
           alt="GE HealthCare"
-          width={36}
-          height={36}
+          width={44}
+          height={44}
           onError={(e) => {
             // Fallback, solange keine Logo-Datei unter public/ge-logo.png liegt
             const img = e.currentTarget;

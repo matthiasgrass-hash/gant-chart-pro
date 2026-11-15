@@ -7,9 +7,9 @@
   --text: #0f172a;
   --text-2: #475569;
   --muted: #94a3b8;
-  /* Akzentfarbe aus dem GE-HealthCare-Logo; bei Bedarf durch den offiziellen Hex-Wert ersetzen */
-  --primary: #5b2aa5;
-  --primary-hover: #48208a;
+  /* Akzentfarbe exakt aus dem GE-HealthCare-Logo (public/ge-logo.png) */
+  --primary: #6022a7;
+  --primary-hover: #4c1b86;
   --primary-soft: #f3eefb;
   --danger: #dc2626;
   --selected: #f3eefb;
