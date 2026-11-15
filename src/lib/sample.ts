@@ -1,12 +1,14 @@
 import type { Project } from '../types';
 import { addDays, todayIso } from './date';
 
+export const DEFAULT_PROJECT_NAME = 'Projektüberschrift';
+
 export function createSampleProject(): Project {
   const t0 = addDays(todayIso(), -5);
   const d = (n: number) => addDays(t0, n);
   return {
     version: 1,
-    name: 'Website-Relaunch',
+    name: DEFAULT_PROJECT_NAME,
     tasks: [
       { id: 'a', name: 'Anforderungen sammeln', start: d(0), end: d(4), progress: 100, color: '#3b82f6', dependencies: [] },
       { id: 'b', name: 'Konzept & Wireframes', start: d(5), end: d(11), progress: 60, color: '#8b5cf6', dependencies: ['a'] },

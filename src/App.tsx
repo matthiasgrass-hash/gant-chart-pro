@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import type { Project, Task, ViewMode } from './types';
 import { projectReducer } from './state/projectReducer';
 import { loadProject, saveProject } from './lib/storage';
-import { createSampleProject } from './lib/sample';
+import { DEFAULT_PROJECT_NAME, createSampleProject } from './lib/sample';
 import { addDays, toDayNumber, todayIso } from './lib/date';
 import { createId } from './lib/id';
 import { TASK_COLORS } from './lib/colors';
@@ -17,7 +17,10 @@ import { TaskDialog } from './components/TaskDialog';
 const VIEW_KEY = 'gant-chart-pro:view';
 
 function initialProject(): Project {
-  return loadProject() ?? createSampleProject();
+  const stored = loadProject();
+  if (!stored) return createSampleProject();
+  // Früherer Name des Beispielprojekts → neue Standardüberschrift
+  return stored.name === 'Website-Relaunch' ? { ...stored, name: DEFAULT_PROJECT_NAME } : stored;
 }
 
 function initialView(): ViewMode {
