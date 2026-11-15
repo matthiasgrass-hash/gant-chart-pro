@@ -27,8 +27,22 @@ export function Toolbar(p: Props) {
   return (
     <header className="toolbar">
       <div className="brand">
-        <img src="./favicon.svg" alt="" width={26} height={26} />
-        <input className="project-name" value={p.projectName} onChange={(e) => p.onRename(e.target.value)} aria-label="Projektname" />
+        <img
+          className="brand-logo"
+          src="./ge-logo.png"
+          alt="GE HealthCare"
+          width={36}
+          height={36}
+          onError={(e) => {
+            // Fallback, solange keine Logo-Datei unter public/ge-logo.png liegt
+            const img = e.currentTarget;
+            if (!img.src.endsWith('favicon.svg')) img.src = './favicon.svg';
+          }}
+        />
+        <div className="brand-text">
+          <h1 className="app-title">GE HealthCare Projectmanagement</h1>
+          <input className="project-name" value={p.projectName} onChange={(e) => p.onRename(e.target.value)} aria-label="Projektname" />
+        </div>
       </div>
 
       <div className="toolbar-group">

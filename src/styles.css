@@ -7,10 +7,12 @@
   --text: #0f172a;
   --text-2: #475569;
   --muted: #94a3b8;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
+  /* Akzentfarbe aus dem GE-HealthCare-Logo; bei Bedarf durch den offiziellen Hex-Wert ersetzen */
+  --primary: #5b2aa5;
+  --primary-hover: #48208a;
+  --primary-soft: #f3eefb;
   --danger: #dc2626;
-  --selected: #eff6ff;
+  --selected: #f3eefb;
   --radius: 8px;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--text);
@@ -58,15 +60,19 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
-.brand { display: flex; align-items: center; gap: 8px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-logo { display: block; object-fit: contain; }
+.toolbar { border-top: 4px solid var(--primary); }
+.brand-text { display: flex; flex-direction: column; }
+.app-title { margin: 0 0 0 9px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--primary); white-space: nowrap; }
 .project-name {
   font: inherit;
   font-size: 17px;
   font-weight: 600;
   border: 1px solid transparent;
   border-radius: 6px;
-  padding: 4px 8px;
-  width: 260px;
+  padding: 2px 8px;
+  width: 280px;
   background: transparent;
   color: var(--text);
 }
@@ -77,7 +83,7 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
 .segmented button { border-radius: 0; margin-left: -1px; }
 .segmented button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
 .segmented button:last-child { border-radius: 0 6px 6px 0; }
-.segmented button.is-active { background: var(--text); border-color: var(--text); color: #fff; position: relative; }
+.segmented button.is-active { background: var(--primary); border-color: var(--primary); color: #fff; position: relative; }
 
 /* Gantt-Bereich */
 .gantt {
