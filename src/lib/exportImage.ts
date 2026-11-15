@@ -4,6 +4,9 @@ import { HEADER_HEIGHT, ROW_HEIGHT } from './timeline';
 
 const NAME_COL = 260;
 const SVG_NS = 'http://www.w3.org/2000/svg';
+const BRAND = '#6022a7';
+const APP_TITLE = 'GE HealthCare Projectmanagement';
+const LOGO_URL = './ge-logo.png';
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 
 function el<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number>, text?: string) {
@@ -14,16 +17,22 @@ function el<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, 
 }
 
 /** Baut ein eigenständiges SVG aus Aufgabenspalte + Diagramm für den Export. */
-export function buildExportSvg(chart: SVGSVGElement, project: Project): { svg: SVGSVGElement; width: number; height: number } {
+export function buildExportSvg(chart: SVGSVGElement, project: Project, logoDataUrl?: string | null): { svg: SVGSVGElement; width: number; height: number } {
   const chartWidth = Number(chart.getAttribute('width'));
   const chartHeight = Number(chart.getAttribute('height'));
-  const title = 40;
+  const title = 84;
   const width = NAME_COL + chartWidth;
   const height = title + chartHeight;
 
   const svg = el('svg', { xmlns: SVG_NS, width, height, viewBox: `0 0 ${width} ${height}`, 'font-family': FONT });
   svg.appendChild(el('rect', { x: 0, y: 0, width, height, fill: '#ffffff' }));
-  svg.appendChild(el('text', { x: 16, y: 26, 'font-size': 18, 'font-weight': 600, fill: '#0f172a' }, project.name));
+  // Kopfbereich: GE-Logo, App-Titel, Projektüberschrift
+  const logoSize = 56;
+  const textX = logoDataUrl ? 16 + logoSize + 14 : 16;
+  if (logoDataUrl) svg.appendChild(el('image', { x: 16, y: (title - logoSize) / 2 - 2, width: logoSize, height: logoSize, href: logoDataUrl }));
+  svg.appendChild(el('text', { x: textX, y: 33, 'font-size': 14, 'font-weight': 700, 'letter-spacing': 0.5, fill: BRAND }, APP_TITLE.toUpperCase()));
+  svg.appendChild(el('text', { x: textX, y: 58, 'font-size': 22, 'font-weight': 700, fill: '#0f172a' }, project.name));
+  svg.appendChild(el('rect', { x: 0, y: 0, width, height: 4, fill: BRAND }));
 
   const names = el('g', { transform: `translate(0 ${title})` });
   names.appendChild(el('rect', { x: 0, y: 0, width: NAME_COL, height: HEADER_HEIGHT, fill: '#f8fafc' }));
@@ -82,11 +91,37 @@ export function downloadBlob(blob: Blob, filename: string): void {
 }
 
 export function fileBaseName(project: Project): string {
-  return project.name.trim().replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '') || 'gantt';
+  const map: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', Ä: 'Ae', Ö: 'Oe', Ü: 'Ue', ß: 'ss' };
+  return (
+    project.name
+      .trim()
+      .replace(/[äöüÄÖÜß]/g, (c) => map[c])
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'gantt'
+  );
+}
+
+/** Lädt das Logo als Data-URL – externe Bilder würden im SVG→Canvas-Rendering nicht geladen. */
+async function loadLogo(): Promise<string | null> {
+  try {
+    const res = await fetch(LOGO_URL);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function exportPng(chart: SVGSVGElement, project: Project): Promise<void> {
-  const { svg, width, height } = buildExportSvg(chart, project);
+  const { svg, width, height } = buildExportSvg(chart, project, await loadLogo());
   // Browser begrenzen Canvas-Größen; bei sehr breiten Diagrammen Auflösung reduzieren.
   const scale = Math.min(2, 16000 / width, 16000 / height);
   const canvas = await svgToCanvas(svg, width, height, scale);
@@ -96,7 +131,7 @@ export async function exportPng(chart: SVGSVGElement, project: Project): Promise
 }
 
 export async function exportPdf(chart: SVGSVGElement, project: Project): Promise<void> {
-  const { svg, width, height } = buildExportSvg(chart, project);
+  const { svg, width, height } = buildExportSvg(chart, project, await loadLogo());
   const scale = Math.min(2, 14000 / width, 14000 / height);
   const canvas = await svgToCanvas(svg, width, height, scale);
   const { jsPDF } = await import('jspdf');
