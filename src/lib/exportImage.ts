@@ -17,7 +17,9 @@ function el<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, 
 }
 
 /** Baut ein eigenständiges SVG aus Aufgabenspalte + Diagramm für den Export. */
-export function buildExportSvg(chart: SVGSVGElement, project: Project, logoDataUrl?: string | null): { svg: SVGSVGElement; width: number; height: number } {
+interface Rect { x: number; y: number; width: number; height: number }
+
+export function buildExportSvg(chart: SVGSVGElement, project: Project, withLogo = false): { svg: SVGSVGElement; width: number; height: number; logoRect: Rect | null } {
   const chartWidth = Number(chart.getAttribute('width'));
   const chartHeight = Number(chart.getAttribute('height'));
   const title = 84;
@@ -28,8 +30,10 @@ export function buildExportSvg(chart: SVGSVGElement, project: Project, logoDataU
   svg.appendChild(el('rect', { x: 0, y: 0, width, height, fill: '#ffffff' }));
   // Kopfbereich: GE-Logo, App-Titel, Projektüberschrift
   const logoSize = 56;
-  const textX = logoDataUrl ? 16 + logoSize + 14 : 16;
-  if (logoDataUrl) svg.appendChild(el('image', { x: 16, y: (title - logoSize) / 2 - 2, width: logoSize, height: logoSize, href: logoDataUrl }));
+  const textX = withLogo ? 16 + logoSize + 14 : 16;
+  // Das Logo wird nicht ins SVG eingebettet, sondern danach direkt auf das Canvas gezeichnet –
+  // Safari lässt Bilder innerhalb eines SVG beim Rendern auf ein Canvas sonst weg.
+  const logoRect = withLogo ? { x: 16, y: (title - logoSize) / 2 + 2, width: logoSize, height: logoSize } : null;
   svg.appendChild(el('text', { x: textX, y: 33, 'font-size': 14, 'font-weight': 700, 'letter-spacing': 0.5, fill: BRAND }, APP_TITLE.toUpperCase()));
   svg.appendChild(el('text', { x: textX, y: 58, 'font-size': 22, 'font-weight': 700, fill: '#0f172a' }, project.name));
   svg.appendChild(el('rect', { x: 0, y: 0, width, height: 4, fill: BRAND }));
@@ -53,10 +57,16 @@ export function buildExportSvg(chart: SVGSVGElement, project: Project, logoDataU
   const chartGroup = el('g', { transform: `translate(${NAME_COL} ${title})` });
   while (clone.firstChild) chartGroup.appendChild(clone.firstChild);
   svg.appendChild(chartGroup);
-  return { svg, width, height };
+  return { svg, width, height, logoRect };
 }
 
-async function svgToCanvas(svg: SVGSVGElement, width: number, height: number, scale: number): Promise<HTMLCanvasElement> {
+async function svgToCanvas(
+  svg: SVGSVGElement,
+  width: number,
+  height: number,
+  scale: number,
+  overlay?: { image: HTMLImageElement; rect: Rect } | null,
+): Promise<HTMLCanvasElement> {
   const data = new XMLSerializer().serializeToString(svg);
   const url = URL.createObjectURL(new Blob([data], { type: 'image/svg+xml;charset=utf-8' }));
   try {
@@ -73,6 +83,7 @@ async function svgToCanvas(svg: SVGSVGElement, width: number, height: number, sc
     if (!ctx) throw new Error('Canvas wird von diesem Browser nicht unterstützt.');
     ctx.scale(scale, scale);
     ctx.drawImage(img, 0, 0, width, height);
+    if (overlay) ctx.drawImage(overlay.image, overlay.rect.x, overlay.rect.y, overlay.rect.width, overlay.rect.height);
     return canvas;
   } finally {
     URL.revokeObjectURL(url);
@@ -103,37 +114,36 @@ export function fileBaseName(project: Project): string {
   );
 }
 
-/** Lädt das Logo als Data-URL – externe Bilder würden im SVG→Canvas-Rendering nicht geladen. */
-async function loadLogo(): Promise<string | null> {
+/** Lädt das Logo (gleiche Herkunft, daher kein „tainted canvas“). */
+async function loadLogo(): Promise<HTMLImageElement | null> {
   try {
-    const res = await fetch(LOGO_URL);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
+    const img = new Image();
+    img.src = new URL(LOGO_URL, document.baseURI).href;
+    await img.decode();
+    return img;
   } catch {
     return null;
   }
 }
 
-export async function exportPng(chart: SVGSVGElement, project: Project): Promise<void> {
-  const { svg, width, height } = buildExportSvg(chart, project, await loadLogo());
+async function renderExport(chart: SVGSVGElement, project: Project, maxSize: number) {
+  const logo = await loadLogo();
+  const { svg, width, height, logoRect } = buildExportSvg(chart, project, Boolean(logo));
   // Browser begrenzen Canvas-Größen; bei sehr breiten Diagrammen Auflösung reduzieren.
-  const scale = Math.min(2, 16000 / width, 16000 / height);
-  const canvas = await svgToCanvas(svg, width, height, scale);
+  const scale = Math.min(2, maxSize / width, maxSize / height);
+  const canvas = await svgToCanvas(svg, width, height, scale, logo && logoRect ? { image: logo, rect: logoRect } : null);
+  return { canvas, width, height };
+}
+
+export async function exportPng(chart: SVGSVGElement, project: Project): Promise<void> {
+  const { canvas } = await renderExport(chart, project, 16000);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) throw new Error('PNG konnte nicht erzeugt werden.');
   downloadBlob(blob, `${fileBaseName(project)}.png`);
 }
 
 export async function exportPdf(chart: SVGSVGElement, project: Project): Promise<void> {
-  const { svg, width, height } = buildExportSvg(chart, project, await loadLogo());
-  const scale = Math.min(2, 14000 / width, 14000 / height);
-  const canvas = await svgToCanvas(svg, width, height, scale);
+  const { canvas, width, height } = await renderExport(chart, project, 14000);
   const { jsPDF } = await import('jspdf');
   const pdf = new jsPDF({ orientation: width >= height ? 'landscape' : 'portrait', unit: 'px', format: [width, height], hotfixes: ['px_scaling'] });
   pdf.addImage(canvas, 'PNG', 0, 0, width, height, undefined, 'FAST');
