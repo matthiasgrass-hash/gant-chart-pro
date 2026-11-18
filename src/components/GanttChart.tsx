@@ -161,7 +161,7 @@ export function GanttChart(props: Props) {
           c.weekend ? <rect key={`we-${c.x}`} x={c.x} y={HEADER_HEIGHT} width={c.width} height={height - HEADER_HEIGHT} fill="#f1f5f9" /> : null,
         )}
       {displayed.map((t, i) =>
-        t.id === selectedId ? <rect key={`sel-${t.id}`} x={0} y={HEADER_HEIGHT + i * ROW_HEIGHT} width={width} height={ROW_HEIGHT} fill="#f3eefb" /> : null,
+        t.id === selectedId ? <rect key={`sel-${t.id}`} data-export="exclude" x={0} y={HEADER_HEIGHT + i * ROW_HEIGHT} width={width} height={ROW_HEIGHT} fill="#f3eefb" /> : null,
       )}
       {header.bottom.map((c) => (
         <line key={`v-${c.x}`} x1={c.x + 0.5} x2={c.x + 0.5} y1={HEADER_HEIGHT / 2} y2={height} stroke="#e2e8f0" />
@@ -279,15 +279,26 @@ export function GanttChart(props: Props) {
                   style={{ cursor: 'grab' }}
                   onPointerDown={(e) => beginDrag(e, 'move', t.id)}
                 />
-                <text
-                  x={labelInside ? x + 8 : x + w + 8}
-                  y={y + BAR_HEIGHT / 2 + 4}
-                  fontSize={12}
-                  fill={labelInside ? '#0f172a' : '#334155'}
-                  pointerEvents="none"
-                >
-                  {t.name}
-                </text>
+                {labelInside ? (
+                  <>
+                    {/* Schrift dunkel auf hellem Teil, weiß auf dem gefüllten (Fortschritts-)Teil */}
+                    <clipPath id={`progress-clip-${i}`}>
+                      <rect x={x} y={y} width={progressW} height={BAR_HEIGHT} />
+                    </clipPath>
+                    <text x={x + 8} y={y + BAR_HEIGHT / 2 + 4} fontSize={12} fill="#1e1b2e" pointerEvents="none">
+                      {t.name}
+                    </text>
+                    {progressW > 0 && (
+                      <text x={x + 8} y={y + BAR_HEIGHT / 2 + 4} fontSize={12} fontWeight={500} fill="#ffffff" clipPath={`url(#progress-clip-${i})`} pointerEvents="none">
+                        {t.name}
+                      </text>
+                    )}
+                  </>
+                ) : (
+                  <text x={x + w + 8} y={y + BAR_HEIGHT / 2 + 4} fontSize={12} fill="#334155" pointerEvents="none">
+                    {t.name}
+                  </text>
+                )}
                 <rect
                   className="resize-handle"
                   data-export="exclude"

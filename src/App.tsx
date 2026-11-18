@@ -5,7 +5,7 @@ import { loadProject, saveProject } from './lib/storage';
 import { DEFAULT_PROJECT_NAME, createSampleProject } from './lib/sample';
 import { addDays, toDayNumber, todayIso } from './lib/date';
 import { createId } from './lib/id';
-import { TASK_COLORS } from './lib/colors';
+import { GE_COLOR } from './lib/colors';
 import { parseProject, serializeProject } from './lib/serialize';
 import { PX_PER_DAY, computeRange } from './lib/timeline';
 import { downloadBlob, exportPdf, exportPng, fileBaseName } from './lib/exportImage';
@@ -15,12 +15,24 @@ import { GanttChart } from './components/GanttChart';
 import { TaskDialog } from './components/TaskDialog';
 
 const VIEW_KEY = 'gant-chart-pro:view';
+const GE_COLOR_MIGRATION_KEY = 'gant-chart-pro:ge-color-v1';
+
+/** Einmalig alle vorhandenen Aufgaben auf die GE-Farbe setzen. */
+function applyGeColorOnce(project: Project): Project {
+  try {
+    if (localStorage.getItem(GE_COLOR_MIGRATION_KEY)) return project;
+    localStorage.setItem(GE_COLOR_MIGRATION_KEY, '1');
+  } catch {
+    return project;
+  }
+  return { ...project, tasks: project.tasks.map((t) => ({ ...t, color: GE_COLOR })) };
+}
 
 function initialProject(): Project {
   const stored = loadProject();
   if (!stored) return createSampleProject();
   // Früherer Name des Beispielprojekts → neue Standardüberschrift
-  return stored.name === 'Website-Relaunch' ? { ...stored, name: DEFAULT_PROJECT_NAME } : stored;
+  return applyGeColorOnce(stored.name === 'Website-Relaunch' ? { ...stored, name: DEFAULT_PROJECT_NAME } : stored);
 }
 
 function initialView(): ViewMode {
@@ -82,7 +94,7 @@ export default function App() {
       start,
       end: addDays(start, 4),
       progress: 0,
-      color: TASK_COLORS[project.tasks.length % TASK_COLORS.length],
+      color: GE_COLOR,
       dependencies: selected ? [selected.id] : [],
     };
   };
@@ -156,7 +168,7 @@ export default function App() {
         }}
         onClear={() => {
           if (!confirm('Alle Aufgaben löschen?')) return;
-          dispatch({ type: 'load', project: { version: 1, name: project.name, tasks: [] } });
+          dispatch({ type: 'load', project: { ...project, tasks: [] } });
           setSelectedId(null);
         }}
       />
@@ -164,8 +176,23 @@ export default function App() {
       <main className="gantt" ref={scrollRef}>
         <TaskList
           tasks={project.tasks}
+          columns={project.columns}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          onAddColumn={(column) =>
+            dispatch({ type: 'addColumn', column: column ?? { id: createId(), kind: 'text', label: 'Neue Spalte' } })
+          }
+          onRenameColumn={(id, label) => dispatch({ type: 'renameColumn', id, label })}
+          onDeleteColumn={(column) => {
+            const hasValues = column.kind === 'text' && project.tasks.some((t) => t.fields?.[column.id]);
+            const msg = hasValues
+              ? `Spalte „${column.label}" mit allen Einträgen löschen?`
+              : column.kind === 'text'
+                ? `Spalte „${column.label}" löschen?`
+                : `Spalte „${column.label}" ausblenden? Über „+ Spalte" kann sie wieder eingeblendet werden.`;
+            if (confirm(msg)) dispatch({ type: 'deleteColumn', id: column.id });
+          }}
+          onSetField={(taskId, columnId, value) => dispatch({ type: 'setField', taskId, columnId, value })}
           onEdit={(task) => setEditing({ task, isNew: false })}
           onMove={(id, direction) => dispatch({ type: 'moveTask', id, direction })}
           onDelete={deleteTask}
@@ -203,6 +230,7 @@ export default function App() {
           task={editing.task}
           isNew={editing.isNew}
           allTasks={project.tasks}
+          columns={project.columns}
           onClose={() => setEditing(null)}
           onDelete={deleteTask}
           onSave={(task) => {

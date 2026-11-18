@@ -1,8 +1,9 @@
 import type { Project } from '../types';
-import { formatDate } from './date';
+import { COLUMN_WIDTH, cellText } from './columns';
 import { HEADER_HEIGHT, ROW_HEIGHT } from './timeline';
 
-const NAME_COL = 260;
+const TABLE_PAD = 16;
+const COL_GAP = 12;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const BRAND = '#6022a7';
 const APP_TITLE = 'GE HealthCare Projectmanagement';
@@ -16,6 +17,12 @@ function el<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, 
   return node;
 }
 
+/** Kürzt Text grob auf die verfügbare Breite (ca. 7 px pro Zeichen bei 12–13 px Schrift). */
+function fit(text: string, width: number): string {
+  const max = Math.max(3, Math.floor(width / 7));
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
 /** Baut ein eigenständiges SVG aus Aufgabenspalte + Diagramm für den Export. */
 interface Rect { x: number; y: number; width: number; height: number }
 
@@ -23,7 +30,8 @@ export function buildExportSvg(chart: SVGSVGElement, project: Project, withLogo 
   const chartWidth = Number(chart.getAttribute('width'));
   const chartHeight = Number(chart.getAttribute('height'));
   const title = 84;
-  const width = NAME_COL + chartWidth;
+  const tableWidth = project.columns.reduce((sum, c) => sum + COLUMN_WIDTH[c.kind] + COL_GAP, 0) + TABLE_PAD * 2 - COL_GAP;
+  const width = tableWidth + chartWidth;
   const height = title + chartHeight;
 
   const svg = el('svg', { xmlns: SVG_NS, width, height, viewBox: `0 0 ${width} ${height}`, 'font-family': FONT });
@@ -38,23 +46,43 @@ export function buildExportSvg(chart: SVGSVGElement, project: Project, withLogo 
   svg.appendChild(el('text', { x: textX, y: 58, 'font-size': 22, 'font-weight': 700, fill: '#0f172a' }, project.name));
   svg.appendChild(el('rect', { x: 0, y: 0, width, height: 4, fill: BRAND }));
 
+  // Tabelle links: dieselben Spalten wie in der Aufgabenliste
   const names = el('g', { transform: `translate(0 ${title})` });
-  names.appendChild(el('rect', { x: 0, y: 0, width: NAME_COL, height: HEADER_HEIGHT, fill: '#f8fafc' }));
-  names.appendChild(el('text', { x: 16, y: HEADER_HEIGHT / 2 + 5, 'font-size': 13, 'font-weight': 600, fill: '#334155' }, 'Aufgabe'));
+  names.appendChild(el('rect', { x: 0, y: 0, width: tableWidth, height: HEADER_HEIGHT, fill: '#f8fafc' }));
+  names.appendChild(el('line', { x1: 0, x2: tableWidth, y1: HEADER_HEIGHT - 0.5, y2: HEADER_HEIGHT - 0.5, stroke: '#cbd5e1' }));
+  let x = TABLE_PAD;
+  const cols = project.columns.map((c) => {
+    const col = { column: c, x, width: COLUMN_WIDTH[c.kind] };
+    x += col.width + COL_GAP;
+    return col;
+  });
+  for (const { column, x: cx, width: w } of cols) {
+    const right = column.kind === 'duration';
+    names.appendChild(
+      el('text', { x: right ? cx + w - 4 : cx, y: HEADER_HEIGHT / 2 + 5, 'font-size': 13, 'font-weight': 600, fill: '#334155', 'text-anchor': right ? 'end' : 'start' }, fit(column.label, w)),
+    );
+  }
   project.tasks.forEach((t, i) => {
     const y = HEADER_HEIGHT + i * ROW_HEIGHT;
-    names.appendChild(el('line', { x1: 0, x2: NAME_COL, y1: y + ROW_HEIGHT, y2: y + ROW_HEIGHT, stroke: '#e2e8f0' }));
-    names.appendChild(el('circle', { cx: 18, cy: y + ROW_HEIGHT / 2, r: 5, fill: t.color }));
-    const label = t.name.length > 30 ? `${t.name.slice(0, 29)}…` : t.name;
-    names.appendChild(el('text', { x: 32, y: y + ROW_HEIGHT / 2 - 2, 'font-size': 13, fill: '#0f172a' }, label));
-    names.appendChild(el('text', { x: 32, y: y + ROW_HEIGHT / 2 + 12, 'font-size': 10, fill: '#64748b' }, `${formatDate(t.start)} – ${formatDate(t.end)}`));
+    const mid = y + ROW_HEIGHT / 2 + 4;
+    names.appendChild(el('line', { x1: 0, x2: tableWidth, y1: y + ROW_HEIGHT - 0.5, y2: y + ROW_HEIGHT - 0.5, stroke: '#e2e8f0' }));
+    for (const { column, x: cx, width: w } of cols) {
+      if (column.kind === 'name') {
+        names.appendChild(el('circle', { cx: cx + 5, cy: y + ROW_HEIGHT / 2, r: 5, fill: t.color }));
+        names.appendChild(el('text', { x: cx + 18, y: mid, 'font-size': 13, fill: '#0f172a' }, fit(t.name, w - 18)));
+      } else if (column.kind === 'duration') {
+        names.appendChild(el('text', { x: cx + w - 4, y: mid, 'font-size': 12, fill: '#475569', 'text-anchor': 'end' }, cellText(t, column)));
+      } else {
+        names.appendChild(el('text', { x: cx, y: mid, 'font-size': 12, fill: '#475569' }, fit(cellText(t, column), w)));
+      }
+    }
   });
-  names.appendChild(el('line', { x1: NAME_COL - 0.5, x2: NAME_COL - 0.5, y1: 0, y2: chartHeight, stroke: '#cbd5e1' }));
+  names.appendChild(el('line', { x1: tableWidth - 0.5, x2: tableWidth - 0.5, y1: 0, y2: chartHeight, stroke: '#cbd5e1' }));
   svg.appendChild(names);
 
   const clone = chart.cloneNode(true) as SVGSVGElement;
   clone.querySelectorAll('[data-export="exclude"]').forEach((n) => n.remove());
-  const chartGroup = el('g', { transform: `translate(${NAME_COL} ${title})` });
+  const chartGroup = el('g', { transform: `translate(${tableWidth} ${title})` });
   while (clone.firstChild) chartGroup.appendChild(clone.firstChild);
   svg.appendChild(chartGroup);
   return { svg, width, height, logoRect };

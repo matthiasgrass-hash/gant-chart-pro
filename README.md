@@ -8,8 +8,9 @@ Alle Daten bleiben lokal im Browser (localStorage), es wird kein Server benötig
 - **Aufgaben & Zeitleiste** – Aufgaben anlegen, bearbeiten, löschen und sortieren; Zeitskala **Tag / Woche / Monat**, Wochenenden, Kalenderwochen, Heute-Linie
 - **Drag & Drop** – Balken ziehen verschiebt die Aufgabe, die Ränder ziehen ändert Start bzw. Ende (tagesgenau einrastend)
 - **Abhängigkeiten** (Ende → Anfang) – über den Dialog oder per Ziehen vom Punkt rechts am Balken auf eine andere Aufgabe; Pfeile werden gezeichnet, Konflikte (Nachfolger startet vor Ende des Vorgängers) rot markiert, zirkuläre Abhängigkeiten verhindert. Klick auf einen Pfeil entfernt ihn.
-- **Fortschritt, Farben, Meilensteine** (eintägige Aufgaben werden in Wochen-/Monatsansicht als Raute dargestellt)
-- **Import / Export** – Projekt als JSON speichern und wieder laden (mit Validierung), Diagramm als **PNG** oder **PDF** exportieren
+- **Spalten anpassen** – über „+ Spalte" eigene Textspalten anlegen (z. B. „Verantwortlich"), Spaltennamen per Klick umbenennen, Spalten über ✕ löschen; Start/Ende/Tage lassen sich ausblenden und wieder einblenden. Textzellen per Klick direkt bearbeiten oder im Aufgaben-Dialog.
+- **Fortschritt, Farben, Meilensteine** – Standardfarbe ist GE-Lila (`#6022a7`), andere Farben bei Bedarf im Dialog; eintägige Aufgaben werden in Wochen-/Monatsansicht als Raute dargestellt
+- **Import / Export** – Projekt als JSON speichern und wieder laden (mit Validierung), Diagramm als **PNG** oder **PDF** exportieren (mit GE-Logo, Projektüberschrift und allen Spalten der Aufgabenliste)
 - Tastatur: `Enter` bearbeitet, `Entf` löscht die ausgewählte Aufgabe, `Esc` hebt die Auswahl auf
 
 ## Loslegen
@@ -52,9 +53,17 @@ src/
   "name": "Mein Projekt",
   "tasks": [
     { "id": "a", "name": "Konzept", "start": "2026-11-16", "end": "2026-11-20",
-      "progress": 50, "color": "#3b82f6", "dependencies": [] }
+      "progress": 50, "color": "#6022a7", "dependencies": [],
+      "fields": { "owner": "Anna" } }
+  ],
+  "columns": [
+    { "id": "name", "kind": "name", "label": "Aufgabe" },
+    { "id": "start", "kind": "start", "label": "Start" },
+    { "id": "end", "kind": "end", "label": "Ende" },
+    { "id": "duration", "kind": "duration", "label": "Tage" },
+    { "id": "owner", "kind": "text", "label": "Verantwortlich" }
   ]
 }
 ```
 
-`start` und `end` sind inklusive (eine Aufgabe von Montag bis Montag dauert 1 Tag).
+`start` und `end` sind inklusive (eine Aufgabe von Montag bis Montag dauert 1 Tag). `columns` ist optional – ältere Dateien ohne Spalten bekommen die Standardspalten.

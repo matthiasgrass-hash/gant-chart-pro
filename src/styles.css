@@ -106,19 +106,19 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
   left: 0;
   z-index: 2;
   flex: none;
-  width: 500px;
   background: var(--surface);
   border-right: 1px solid var(--border-strong);
   font-size: 13px;
 }
 .task-list__header, .task-list__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 76px 76px 32px 92px;
   align-items: center;
   gap: 6px;
   padding: 0 8px 0 12px;
 }
 .task-list__header {
+  position: relative;
+  z-index: 3;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border-strong);
   font-weight: 600;
@@ -129,7 +129,76 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
 .task-list__row.is-selected { background: var(--selected); }
 .task-name { display: flex; align-items: center; gap: 8px; color: var(--text); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .task-name .done { color: #10b981; font-weight: 700; }
-.num { text-align: right; }
+.num { text-align: right; justify-content: flex-end; }
+.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* Spaltenköpfe: umbenennen per Klick, löschen per ✕ */
+.col-head { position: relative; display: flex; align-items: center; min-width: 0; }
+.col-head .inline-edit { font-weight: 600; color: #334155; }
+.col-delete {
+  position: absolute;
+  right: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0 5px;
+  font-size: 11px;
+  opacity: 0;
+  background: var(--surface-2) !important;
+}
+.col-delete:hover:not(:disabled) { background: var(--danger) !important; color: #fff; }
+.col-head:hover .col-delete, .col-delete:focus-visible { opacity: 1; }
+.inline-edit {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 2px 4px;
+  margin-left: -5px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  text-align: left;
+  cursor: text;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inline-edit:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface); }
+.inline-edit.is-empty { color: var(--muted); }
+.inline-input {
+  font: inherit;
+  font-size: 13px;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 4px;
+  margin-left: -5px;
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  outline: none;
+}
+.text-cell { display: flex; min-width: 0; }
+.text-cell .inline-edit { width: 100%; }
+
+.add-column { position: relative; display: flex; justify-content: flex-end; }
+.add-column__btn { font-size: 12px; color: var(--primary); font-weight: 600; }
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 5;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+}
+.menu button { border: none; text-align: left; font-weight: 400; }
+.menu button:hover { background: var(--primary-soft); }
+.menu__sep { font-size: 11px; color: var(--muted); padding: 6px 12px 2px; border-top: 1px solid var(--border); margin-top: 4px; }
+.field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
 .swatch { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; }
 .row-actions { display: flex; justify-content: flex-end; opacity: 0; transition: opacity 0.1s; }
 .task-list__row:hover .row-actions, .task-list__row.is-selected .row-actions, .row-actions:focus-within { opacity: 1; }
@@ -194,10 +263,10 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
 .toast--error { background: var(--danger); }
 
 @media (max-width: 720px) {
-  .task-list { width: 200px; }
-  .task-list__header, .task-list__row { grid-template-columns: minmax(0, 1fr) 56px; }
-  .task-list__header > :nth-child(n + 3), .task-list__row > :nth-child(n + 3) { display: none; }
-  .task-list__header > :nth-child(2), .task-list__row > :nth-child(2) { font-size: 11px; }
+  .task-list { width: 200px !important; }
+  .task-list__header, .task-list__row { grid-template-columns: minmax(0, 1fr) !important; }
+  .task-list__header > :not(:first-child), .task-list__row > :not(:first-child) { display: none; }
+  .col-delete { display: none; }
   .project-name { width: 180px; }
   .gantt { margin: 8px; }
   .statusbar .muted { display: none; }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import type { Task } from '../types';
+import type { Column, Task } from '../types';
 import { TASK_COLORS } from '../lib/colors';
 import { durationDays, isValidIso } from '../lib/date';
 import { wouldCreateCycle } from '../lib/graph';
@@ -8,12 +8,14 @@ interface Props {
   task: Task;
   isNew: boolean;
   allTasks: Task[];
+  columns: Column[];
   onSave: (task: Task) => void;
   onDelete: (task: Task) => void;
   onClose: () => void;
 }
 
-export function TaskDialog({ task, isNew, allTasks, onSave, onDelete, onClose }: Props) {
+export function TaskDialog({ task, isNew, allTasks, columns, onSave, onDelete, onClose }: Props) {
+  const textColumns = columns.filter((c) => c.kind === 'text');
   const [draft, setDraft] = useState<Task>(task);
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -37,7 +39,8 @@ export function TaskDialog({ task, isNew, allTasks, onSave, onDelete, onClose }:
     if (!draft.name.trim()) return setError('Bitte einen Namen eingeben.');
     if (!isValidIso(draft.start) || !isValidIso(draft.end)) return setError('Bitte gültige Daten eingeben.');
     if (draft.end < draft.start) return setError('Das Ende darf nicht vor dem Start liegen.');
-    onSave({ ...draft, name: draft.name.trim() });
+    const fields = Object.fromEntries(Object.entries(draft.fields ?? {}).filter(([, v]) => v.trim() !== ''));
+    onSave({ ...draft, name: draft.name.trim(), fields });
   };
 
   return (
@@ -64,6 +67,20 @@ export function TaskDialog({ task, isNew, allTasks, onSave, onDelete, onClose }:
             <output>{isValidIso(draft.start) && isValidIso(draft.end) && draft.end >= draft.start ? `${durationDays(draft.start, draft.end)} Tage` : '–'}</output>
           </div>
         </div>
+
+        {textColumns.length > 0 && (
+          <div className="field-grid">
+            {textColumns.map((c) => (
+              <label key={c.id} className="field">
+                <span>{c.label}</span>
+                <input
+                  value={draft.fields?.[c.id] ?? ''}
+                  onChange={(e) => update('fields', { ...draft.fields, [c.id]: e.target.value })}
+                />
+              </label>
+            ))}
+          </div>
+        )}
 
         <label className="field">
           <span>Fortschritt: {draft.progress} %</span>

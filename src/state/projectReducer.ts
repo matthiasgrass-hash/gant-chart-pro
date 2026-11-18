@@ -1,4 +1,4 @@
-import type { Project, Task } from '../types';
+import type { Column, Project, Task } from '../types';
 import { wouldCreateCycle } from '../lib/graph';
 
 export type ProjectAction =
@@ -9,7 +9,11 @@ export type ProjectAction =
   | { type: 'deleteTask'; id: string }
   | { type: 'moveTask'; id: string; direction: -1 | 1 }
   | { type: 'addDependency'; taskId: string; predecessorId: string }
-  | { type: 'removeDependency'; taskId: string; predecessorId: string };
+  | { type: 'removeDependency'; taskId: string; predecessorId: string }
+  | { type: 'addColumn'; column: Column }
+  | { type: 'renameColumn'; id: string; label: string }
+  | { type: 'deleteColumn'; id: string }
+  | { type: 'setField'; taskId: string; columnId: string; value: string };
 
 function mapTask(project: Project, id: string, fn: (t: Task) => Task): Project {
   return { ...project, tasks: project.tasks.map((t) => (t.id === id ? fn(t) : t)) };
@@ -57,5 +61,36 @@ export function projectReducer(state: Project, action: ProjectAction): Project {
     }
     case 'removeDependency':
       return mapTask(state, action.taskId, (t) => ({ ...t, dependencies: t.dependencies.filter((d) => d !== action.predecessorId) }));
+    case 'addColumn': {
+      const { column } = action;
+      if (column.kind === 'name' || state.columns.some((c) => c.id === column.id)) return state;
+      if (column.kind !== 'text' && state.columns.some((c) => c.kind === column.kind)) return state;
+      return { ...state, columns: [...state.columns, column] };
+    }
+    case 'renameColumn': {
+      const label = action.label.trim();
+      if (!label) return state;
+      return { ...state, columns: state.columns.map((c) => (c.id === action.id ? { ...c, label } : c)) };
+    }
+    case 'deleteColumn': {
+      const column = state.columns.find((c) => c.id === action.id);
+      if (!column || column.kind === 'name') return state;
+      return {
+        ...state,
+        columns: state.columns.filter((c) => c.id !== action.id),
+        tasks: state.tasks.map((t) => {
+          if (!t.fields || !(action.id in t.fields)) return t;
+          const { [action.id]: _removed, ...rest } = t.fields;
+          return { ...t, fields: rest };
+        }),
+      };
+    }
+    case 'setField':
+      return mapTask(state, action.taskId, (t) => {
+        const fields = { ...t.fields };
+        if (action.value.trim()) fields[action.columnId] = action.value;
+        else delete fields[action.columnId];
+        return { ...t, fields };
+      });
   }
 }
