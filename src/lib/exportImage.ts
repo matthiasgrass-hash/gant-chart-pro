@@ -1,5 +1,5 @@
 import type { Project } from '../types';
-import { COLUMN_WIDTH, cellText } from './columns';
+import { COLUMN_WIDTH, cellText, isNumericColumn } from './columns';
 import { HEADER_HEIGHT, ROW_HEIGHT } from './timeline';
 
 const TABLE_PAD = 16;
@@ -57,7 +57,7 @@ export function buildExportSvg(chart: SVGSVGElement, project: Project, withLogo 
     return col;
   });
   for (const { column, x: cx, width: w } of cols) {
-    const right = column.kind === 'duration';
+    const right = isNumericColumn(column.kind);
     names.appendChild(
       el('text', { x: right ? cx + w - 4 : cx, y: HEADER_HEIGHT / 2 + 5, 'font-size': 13, 'font-weight': 600, fill: '#334155', 'text-anchor': right ? 'end' : 'start' }, fit(column.label, w)),
     );
@@ -70,7 +70,7 @@ export function buildExportSvg(chart: SVGSVGElement, project: Project, withLogo 
       if (column.kind === 'name') {
         names.appendChild(el('circle', { cx: cx + 5, cy: y + ROW_HEIGHT / 2, r: 5, fill: t.color }));
         names.appendChild(el('text', { x: cx + 18, y: mid, 'font-size': 13, fill: '#0f172a' }, fit(t.name, w - 18)));
-      } else if (column.kind === 'duration') {
+      } else if (isNumericColumn(column.kind)) {
         names.appendChild(el('text', { x: cx + w - 4, y: mid, 'font-size': 12, fill: '#475569', 'text-anchor': 'end' }, cellText(t, column)));
       } else {
         names.appendChild(el('text', { x: cx, y: mid, 'font-size': 12, fill: '#475569' }, fit(cellText(t, column), w)));

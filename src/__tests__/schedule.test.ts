@@ -121,3 +121,28 @@ describe('Import älterer Dateien', () => {
     expect(p.tasks[1].dependencies).toEqual([{ taskId: 'a', type: 'SS', lag: 3 }]);
   });
 });
+
+describe('Puffer', () => {
+  const Ab = { ...A, buffer: 3 };
+  it('EA: Nachfolger startet erst nach Ende + Puffer', () => {
+    expect(dates(schedule([Ab, task('b', '2026-06-20', '2026-06-22', [dep('a', 'FS')])]), 'b')).toEqual(['2026-06-09', '2026-06-11']);
+  });
+  it('EE: Nachfolger endet mit Ende + Puffer', () => {
+    expect(dates(schedule([Ab, task('b', '2026-06-20', '2026-06-22', [dep('a', 'FF')])]), 'b')).toEqual(['2026-06-06', '2026-06-08']);
+  });
+  it('AA bleibt vom Puffer unberührt', () => {
+    expect(dates(schedule([Ab, task('b', '2026-06-20', '2026-06-22', [dep('a', 'SS')])]), 'b')).toEqual(['2026-06-01', '2026-06-03']);
+  });
+  it('Puffer im Dialog setzen verschiebt Nachfolger, 0 entfernt ihn', () => {
+    let p = projectReducer(project([]), { type: 'load', project: project([A, task('b', '2026-06-06', '2026-06-08', [dep('a')])]) });
+    p = projectReducer(p, { type: 'updateTask', id: 'a', patch: { buffer: 2 } });
+    expect(dates(p.tasks, 'b')).toEqual(['2026-06-08', '2026-06-10']);
+    p = projectReducer(p, { type: 'updateTask', id: 'a', patch: { buffer: 0 } });
+    expect(p.tasks[0].buffer).toBeUndefined();
+    expect(dates(p.tasks, 'b')).toEqual(['2026-06-06', '2026-06-08']);
+  });
+  it('Puffer übersteht Export/Import', () => {
+    const p = parseProject(JSON.stringify({ tasks: [{ id: 'a', start: '2026-06-01', end: '2026-06-02', buffer: 4 }, { id: 'b', start: '2026-06-01', end: '2026-06-02', buffer: -1 }] }));
+    expect(p.tasks.map((t) => t.buffer)).toEqual([4, undefined]);
+  });
+});

@@ -56,6 +56,11 @@ export function projectReducer(state: Project, action: ProjectAction): Project {
       if (!old) return state;
       const dependencies = patch.dependencies ? sanitizeDependencies(state, action.id, patch.dependencies) : old.dependencies;
       let next: Task = { ...old, ...patch, dependencies };
+      if (patch.buffer !== undefined) {
+        const b = Math.max(0, Math.round(Number(patch.buffer) || 0));
+        if (b) next.buffer = b;
+        else delete next.buffer;
+      }
       const datesChanged = (patch.start !== undefined && patch.start !== old.start) || (patch.end !== undefined && patch.end !== old.end);
       // Selbst verschobene abhängige Aufgabe bleibt, wo sie hingelegt wurde: Versatz anpassen
       if (datesChanged) next = alignLags(next, new Map(state.tasks.map((t) => [t.id, t])));

@@ -85,6 +85,20 @@ export function TaskDialog({ task, isNew, allTasks, columns, onSave, onDelete, o
             <span>Dauer</span>
             <output>{isValidIso(draft.start) && isValidIso(draft.end) && draft.end >= draft.start ? `${durationDays(draft.start, draft.end)} Tage` : '–'}</output>
           </div>
+
+        <label className="field field--inline">
+          <span>Puffer nach Ende</span>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={draft.buffer ?? 0}
+            onChange={(e) => update('buffer', Math.max(0, Math.round(Number(e.target.value) || 0)))}
+            aria-describedby="buffer-hint"
+          />
+          <span className="muted">Tage</span>
+          <small id="buffer-hint" className="muted">Nachfolger (EA/EE) starten erst nach dem Puffer.</small>
+        </label>
         </div>
 
         {textColumns.length > 0 && (

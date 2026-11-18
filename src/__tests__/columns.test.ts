@@ -30,9 +30,9 @@ describe('Spalten', () => {
     let p = createSampleProject();
     expect(projectReducer(p, { type: 'deleteColumn', id: 'name' })).toBe(p);
     p = projectReducer(p, { type: 'deleteColumn', id: 'duration' });
-    expect(missingBuiltins(p.columns).map((c) => c.kind)).toEqual(['duration']);
+    expect(missingBuiltins(p.columns).map((c) => c.kind)).toEqual(['duration', 'buffer']);
     p = projectReducer(p, { type: 'addColumn', column: { ...DEFAULT_COLUMNS[3] } });
-    expect(missingBuiltins(p.columns)).toEqual([]);
+    expect(missingBuiltins(p.columns).map((c) => c.kind)).toEqual(['buffer']);
     // doppelte eingebaute Spalte wird abgelehnt
     expect(projectReducer(p, { type: 'addColumn', column: { id: 'x', kind: 'start', label: 'Start 2' } })).toBe(p);
   });

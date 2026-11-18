@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type Ref } from 'react';
 import type { Task, ViewMode } from '../types';
 import { addDays } from '../lib/date';
-import { dependencyLabel, setTaskDates } from '../lib/schedule';
+import { bufferDays, dependencyLabel, setTaskDates } from '../lib/schedule';
 import { BAR_HEIGHT, HEADER_HEIGHT, PX_PER_DAY, ROW_HEIGHT, barGeometry, dependencyPathTyped, headerRows, type TimelineRange } from '../lib/timeline';
 
 interface Props {
@@ -153,6 +153,10 @@ export function GanttChart(props: Props) {
       aria-label="Gantt-Diagramm"
     >
       <defs>
+        <pattern id="buffer-hatch" patternUnits="userSpaceOnUse" width={6} height={6} patternTransform="rotate(45)">
+          <rect width={6} height={6} fill="#f3eefb" />
+          <line x1={0} y1={0} x2={0} y2={6} stroke="#6022a7" strokeOpacity={0.45} strokeWidth={2} />
+        </pattern>
         <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
         </marker>
@@ -222,7 +226,9 @@ export function GanttChart(props: Props) {
           const b = barGeometry(t, range, ppd);
           const y1 = HEADER_HEIGHT + rowOf.get(pred.id)! * ROW_HEIGHT + ROW_HEIGHT / 2;
           const y2 = HEADER_HEIGHT + rowOf.get(t.id)! * ROW_HEIGHT + ROW_HEIGHT / 2;
-          const d = dependencyPathTyped(dep.type, a, y1, b, y2);
+          // Ende-basierte Pfeile starten am Ende des Puffers
+          const aWithBuffer = { x: a.x, width: a.width + bufferDays(pred) * ppd };
+          const d = dependencyPathTyped(dep.type, aWithBuffer, y1, b, y2);
           const active = selectedId === t.id || selectedId === pred.id;
           const color = active ? '#6022a7' : '#64748b';
           return (
@@ -248,6 +254,7 @@ export function GanttChart(props: Props) {
       {/* Balken */}
       {displayed.map((t, i) => {
         const { x, width: w } = barGeometry(t, range, ppd);
+        const bufferW = bufferDays(t) * ppd;
         const y = HEADER_HEIGHT + i * ROW_HEIGHT + (ROW_HEIGHT - BAR_HEIGHT) / 2;
         const isMilestone = t.start === t.end && view !== 'day';
         const selected = t.id === selectedId;
@@ -257,6 +264,11 @@ export function GanttChart(props: Props) {
         return (
           <g key={t.id} className="bar-group">
             <title>{`${t.name}\n${t.start} – ${t.end}\nFortschritt: ${t.progress} %`}</title>
+            {bufferW > 0 && (
+              <rect x={x + w} y={y + 3} width={bufferW} height={BAR_HEIGHT - 6} rx={3} fill="url(#buffer-hatch)" stroke="#6022a7" strokeOpacity={0.5} strokeDasharray="3 2">
+                <title>{`Puffer: ${t.buffer} ${t.buffer === 1 ? 'Tag' : 'Tage'}`}</title>
+              </rect>
+            )}
             {isMilestone ? (
               <path
                 d={`M ${x + w / 2} ${y} l ${BAR_HEIGHT / 2} ${BAR_HEIGHT / 2} l ${-BAR_HEIGHT / 2} ${BAR_HEIGHT / 2} l ${-BAR_HEIGHT / 2} ${-BAR_HEIGHT / 2} z`}
@@ -299,7 +311,7 @@ export function GanttChart(props: Props) {
                     )}
                   </>
                 ) : (
-                  <text x={x + w + 8} y={y + BAR_HEIGHT / 2 + 4} fontSize={12} fill="#334155" pointerEvents="none">
+                  <text x={x + w + bufferW + 8} y={y + BAR_HEIGHT / 2 + 4} fontSize={12} fill="#334155" pointerEvents="none">
                     {t.name}
                   </text>
                 )}
@@ -330,7 +342,7 @@ export function GanttChart(props: Props) {
             <circle
               className="link-handle"
               data-export="exclude"
-              cx={x + w + (isMilestone ? -w / 2 + BAR_HEIGHT / 2 + 8 : 8)}
+              cx={x + w + bufferW + (isMilestone && !bufferW ? -w / 2 + BAR_HEIGHT / 2 + 8 : 8)}
               cy={y + BAR_HEIGHT / 2}
               r={5}
               fill="#ffffff"
@@ -338,7 +350,7 @@ export function GanttChart(props: Props) {
               strokeWidth={2}
               opacity={0}
               style={{ cursor: 'crosshair' }}
-              onPointerDown={(e) => beginLink(e, t, x + w, y + BAR_HEIGHT / 2)}
+              onPointerDown={(e) => beginLink(e, t, x + w + bufferW, y + BAR_HEIGHT / 2)}
             >
               <title>Ziehen, um eine Abhängigkeit zu erstellen</title>
             </circle>

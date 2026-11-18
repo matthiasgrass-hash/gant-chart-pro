@@ -24,6 +24,8 @@ export interface Task {
   /** Fortschritt 0–100 */
   progress: number;
   color: string;
+  /** Puffer in Tagen nach dem Ende; Nachfolger (EA/EE) richten sich nach Ende + Puffer */
+  buffer?: number;
   /** Vorgänger dieser Aufgabe */
   dependencies: Dependency[];
   /** Werte der eigenen Textspalten, Schlüssel = Spalten-ID */
@@ -31,7 +33,7 @@ export interface Task {
 }
 
 /** name/start/end/duration sind eingebaute Spalten, text sind frei angelegte. */
-export type ColumnKind = 'name' | 'start' | 'end' | 'duration' | 'text';
+export type ColumnKind = 'name' | 'start' | 'end' | 'duration' | 'buffer' | 'text';
 
 export interface Column {
   id: string;

@@ -19,13 +19,18 @@ export function dependencyLabel(dep: Dependency): string {
   return `${label}, ${dep.lag > 0 ? '+' : ''}${dep.lag} ${Math.abs(dep.lag) === 1 ? 'Tag' : 'Tage'}`;
 }
 
+export function bufferDays(task: Task): number {
+  return task.buffer && task.buffer > 0 ? Math.round(task.buffer) : 0;
+}
+
 /**
  * Frühester Start (Tagesnummer), den diese Abhängigkeit für den Nachfolger erlaubt.
  * Gerechnet wird mit exklusivem Ende (F = letzter Tag + 1).
  */
 export function requiredStart(dep: Dependency, pred: Task, durationOfSuccessor: number): number {
   const S = toDayNumber(pred.start);
-  const F = toDayNumber(pred.end) + 1;
+  // Puffer des Vorgängers verlängert sein Ende für alle ende-basierten Abhängigkeiten
+  const F = toDayNumber(pred.end) + 1 + bufferDays(pred);
   switch (dep.type) {
     case 'FS':
       return F + dep.lag;

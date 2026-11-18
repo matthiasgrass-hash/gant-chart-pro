@@ -3,7 +3,7 @@ import { isValidIso } from './date';
 import { GE_COLOR } from './colors';
 import { alignLags } from './schedule';
 import { wouldCreateCycle } from './graph';
-import { DEFAULT_COLUMNS } from './columns';
+import { BUILTIN_COLUMNS, DEFAULT_COLUMNS } from './columns';
 
 export function serializeProject(project: Project): string {
   return JSON.stringify(project, null, 2);
@@ -44,6 +44,7 @@ export function parseProject(text: string): Project {
       color: typeof t.color === 'string' && HEX_RE.test(t.color) ? t.color : GE_COLOR,
       dependencies: parseDependencies(t.dependencies, legacy, t.id),
       fields: parseFields(t.fields),
+      ...(typeof t.buffer === 'number' && Number.isFinite(t.buffer) && t.buffer >= 1 ? { buffer: Math.round(t.buffer) } : {}),
     };
   });
   // Verweise auf nicht vorhandene Aufgaben entfernen
@@ -87,7 +88,7 @@ function parseFields(raw: unknown): Record<string, string> | undefined {
   return entries.length ? Object.fromEntries(entries) : undefined;
 }
 
-const KINDS: ColumnKind[] = ['name', 'start', 'end', 'duration', 'text'];
+const KINDS: ColumnKind[] = ['name', 'start', 'end', 'duration', 'buffer', 'text'];
 
 /** Spalten prüfen; fehlt die Angabe (ältere Dateien), gelten die Standardspalten. */
 function parseColumns(raw: unknown): Column[] {
@@ -101,7 +102,7 @@ function parseColumns(raw: unknown): Column[] {
     if (!KINDS.includes(c.kind as ColumnKind)) continue;
     const kind = c.kind as ColumnKind;
     if (kind !== 'text' && seenKinds.has(kind)) continue;
-    const fallback = DEFAULT_COLUMNS.find((d) => d.kind === kind)?.label ?? 'Spalte';
+    const fallback = BUILTIN_COLUMNS.find((d) => d.kind === kind)?.label ?? 'Spalte';
     seenIds.add(c.id);
     seenKinds.add(kind);
     result.push({ id: c.id, kind, label: typeof c.label === 'string' && c.label.trim() ? c.label : fallback });

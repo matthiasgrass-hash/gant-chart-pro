@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { Column, Task } from '../types';
-import { ACTIONS_WIDTH, COLUMN_WIDTH, cellText, missingBuiltins } from '../lib/columns';
+import { ACTIONS_WIDTH, COLUMN_WIDTH, cellText, isNumericColumn, missingBuiltins } from '../lib/columns';
 import { HEADER_HEIGHT, ROW_HEIGHT } from '../lib/timeline';
 
 interface Props {
@@ -93,7 +93,7 @@ function AddColumnMenu({ columns, onAdd }: { columns: Column[]; onAdd: (c: Colum
           <button role="menuitem" onClick={() => { setOpen(false); onAdd(null); }}>
             Neue Textspalte
           </button>
-          {hidden.length > 0 && <div className="menu__sep">Wieder einblenden</div>}
+          {hidden.length > 0 && <div className="menu__sep">Weitere Spalten</div>}
           {hidden.map((c) => (
             <button key={c.kind} role="menuitem" onClick={() => { setOpen(false); onAdd({ ...c }); }}>
               {c.label}
@@ -123,7 +123,7 @@ export function TaskList(p: Props) {
     <div className="task-list" role="table" aria-label="Aufgabenliste" style={{ width: listWidth(columns) }}>
       <div className="task-list__header" role="row" style={{ height: HEADER_HEIGHT, gridTemplateColumns: template }}>
         {columns.map((c) => (
-          <span key={c.id} role="columnheader" className={`col-head${c.kind === 'duration' ? ' num' : ''}`}>
+          <span key={c.id} role="columnheader" className={`col-head${isNumericColumn(c.kind) ? ' num' : ''}`}>
             <InlineEdit key={freshColumn === c.id ? 'fresh' : 'normal'} autoEdit={freshColumn === c.id} value={c.label} onSave={(v) => p.onRenameColumn(c.id, v)} />
             {c.kind !== 'name' && (
               <button className="icon col-delete" title={`Spalte „${c.label}" löschen`} onClick={() => p.onDeleteColumn(c)}>
@@ -155,7 +155,7 @@ export function TaskList(p: Props) {
                 <InlineEdit value={cellText(t, c)} placeholder="–" onSave={(v) => p.onSetField(t.id, c.id, v)} />
               </span>
             ) : (
-              <span key={c.id} role="cell" className={c.kind === 'duration' ? 'num' : undefined}>
+              <span key={c.id} role="cell" className={isNumericColumn(c.kind) ? 'num' : undefined}>
                 {cellText(t, c)}
               </span>
             ),

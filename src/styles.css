@@ -258,6 +258,9 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
   color: var(--text);
 }
 .dep-settings input { width: 52px; }
+.field--inline { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px; }
+.field--inline input[type='number'] { width: 72px; }
+.field--inline small { flex-basis: 100%; font-size: 12px; }
 .hint { margin: -6px 0 0; font-size: 12px; color: var(--text-2); }
 .hint strong { color: var(--primary); }
 .deps label.is-disabled { color: var(--muted); cursor: not-allowed; }
