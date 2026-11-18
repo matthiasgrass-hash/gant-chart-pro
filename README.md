@@ -78,4 +78,4 @@ src/
 }
 ```
 
-`start` und `end` sind inklusive (eine Aufgabe von Montag bis Montag dauert 1 Tag). `dependencies[].type` ist `FS` (EA), `SS` (AA), `FF` (EE) oder `SF` (AE), `lag` der Versatz in Arbeitstagen. Dateien ohne `"calendar": "workdays"` stammen aus der Kalendertage-Version; ihr Versatz wird beim Import so umgerechnet, dass sich keine Termine verschieben. Ältere Dateien mit reinen ID-Listen werden als EA übernommen, ohne dass sich Termine verschieben. `columns` ist optional – ältere Dateien ohne Spalten bekommen die Standardspalten.
+`start` und `end` sind inklusive (beginnt und endet eine Aufgabe am selben Tag, dauert sie 1 Arbeitstag). `dependencies[].type` ist `FS` (EA), `SS` (AA), `FF` (EE) oder `SF` (AE), `lag` der Versatz in Arbeitstagen. Dateien ohne `"calendar": "workdays"` stammen aus der Kalendertage-Version; ihr Versatz wird beim Import so umgerechnet, dass sich keine Termine verschieben. Ältere Dateien mit reinen ID-Listen werden als EA übernommen, ohne dass sich Termine verschieben. `columns` ist optional – ältere Dateien ohne Spalten bekommen die Standardspalten.
