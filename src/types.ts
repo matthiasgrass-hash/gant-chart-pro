@@ -1,5 +1,19 @@
 export type ViewMode = 'day' | 'week' | 'month';
 
+/**
+ * Art der Abhängigkeit (Vorgänger → Nachfolger):
+ * FS = Ende→Anfang (EA), SS = Anfang→Anfang (AA), FF = Ende→Ende (EE), SF = Anfang→Ende (AE)
+ */
+export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
+
+export interface Dependency {
+  /** ID des Vorgängers */
+  taskId: string;
+  type: DependencyType;
+  /** Versatz in Tagen (negativ = Überlappung) */
+  lag: number;
+}
+
 export interface Task {
   id: string;
   name: string;
@@ -10,8 +24,8 @@ export interface Task {
   /** Fortschritt 0–100 */
   progress: number;
   color: string;
-  /** IDs der Vorgänger (Ende-Anfang-Beziehung) */
-  dependencies: string[];
+  /** Vorgänger dieser Aufgabe */
+  dependencies: Dependency[];
   /** Werte der eigenen Textspalten, Schlüssel = Spalten-ID */
   fields?: Record<string, string>;
 }

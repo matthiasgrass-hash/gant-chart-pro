@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { projectReducer } from '../state/projectReducer';
 import { createSampleProject } from '../lib/sample';
 import { parseProject, serializeProject } from '../lib/serialize';
+import type { Dependency } from '../types';
+
+const dep = (taskId: string): Dependency => ({ taskId, type: 'FS', lag: 0 });
 
 describe('projectReducer', () => {
   it('entfernt beim Löschen auch Verweise in Abhängigkeiten', () => {
     const p = projectReducer(createSampleProject(), { type: 'deleteTask', id: 'b' });
     expect(p.tasks.find((t) => t.id === 'b')).toBeUndefined();
-    expect(p.tasks.some((t) => t.dependencies.includes('b'))).toBe(false);
+    expect(p.tasks.some((t) => t.dependencies.some((d) => d.taskId === 'b'))).toBe(false);
   });
   it('verhindert zirkuläre Abhängigkeiten', () => {
     const p0 = createSampleProject();
@@ -15,11 +18,11 @@ describe('projectReducer', () => {
     expect(p).toBe(p0);
   });
   it('filtert zirkuläre Abhängigkeiten beim Bearbeiten', () => {
-    const p = projectReducer(createSampleProject(), { type: 'updateTask', id: 'a', patch: { dependencies: ['g', 'nope', 'c'] } });
+    const p = projectReducer(createSampleProject(), { type: 'updateTask', id: 'a', patch: { dependencies: [dep('g'), dep('nope'), dep('c')] } });
     // g und c hängen (transitiv) von a ab, 'nope' existiert nicht
     expect(p.tasks.find((t) => t.id === 'a')!.dependencies).toEqual([]);
-    const q = projectReducer(createSampleProject(), { type: 'updateTask', id: 'g', patch: { dependencies: ['a', 'a', 'f'] } });
-    expect(q.tasks.find((t) => t.id === 'g')!.dependencies).toEqual(['a', 'f']);
+    const q = projectReducer(createSampleProject(), { type: 'updateTask', id: 'g', patch: { dependencies: [dep('a'), dep('a'), dep('f')] } });
+    expect(q.tasks.find((t) => t.id === 'g')!.dependencies.map((d) => d.taskId)).toEqual(['a', 'f']);
   });
   it('verschiebt Aufgaben in der Reihenfolge', () => {
     const p = projectReducer(createSampleProject(), { type: 'moveTask', id: 'b', direction: -1 });

@@ -219,6 +219,8 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
   width: min(520px, calc(100vw - 32px));
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
   color: var(--text);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
 }
 .task-dialog::backdrop { background: rgba(15, 23, 42, 0.4); }
 .task-dialog form { display: flex; flex-direction: column; gap: 14px; padding: 20px 22px; }
@@ -241,7 +243,23 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
 .colors input[type='color'] { width: 32px; height: 26px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 1px; background: #fff; }
 .deps { max-height: 180px; overflow: auto; gap: 2px; }
 .deps legend { margin-bottom: 6px; }
-.deps label { display: flex; align-items: center; gap: 8px; padding: 4px 2px; color: var(--text); cursor: pointer; }
+.deps { max-height: 260px; }
+.dep-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; border-radius: 6px; padding: 0 6px; }
+.dep-row.is-active { background: var(--primary-soft); }
+.deps label { display: flex; align-items: center; gap: 8px; padding: 5px 0; color: var(--text); cursor: pointer; min-width: 0; flex: 1; }
+.dep-settings { display: flex; align-items: center; gap: 6px; flex: none; }
+.dep-settings select, .dep-settings input {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--text);
+}
+.dep-settings input { width: 52px; }
+.hint { margin: -6px 0 0; font-size: 12px; color: var(--text-2); }
+.hint strong { color: var(--primary); }
 .deps label.is-disabled { color: var(--muted); cursor: not-allowed; }
 .deps p { margin: 0; }
 .error { margin: 0; color: var(--danger); font-size: 13px; }

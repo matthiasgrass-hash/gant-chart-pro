@@ -95,7 +95,7 @@ export default function App() {
       end: addDays(start, 4),
       progress: 0,
       color: GE_COLOR,
-      dependencies: selected ? [selected.id] : [],
+      dependencies: selected ? [{ taskId: selected.id, type: 'FS', lag: 0 }] : [],
     };
   };
 
@@ -215,13 +215,12 @@ export default function App() {
               setToast({ text: 'Abhängigkeit nicht möglich (existiert bereits oder wäre zirkulär).', kind: 'error' });
             }
           }}
-          onRemoveDependency={(taskId, predecessorId) => dispatch({ type: 'removeDependency', taskId, predecessorId })}
         />
       </main>
 
       <footer className="statusbar">
         <span>{project.tasks.length} Aufgaben</span>
-        <span className="muted">Balken ziehen = verschieben · Ränder ziehen = Dauer ändern · Punkt rechts ziehen = Abhängigkeit · Doppelklick = bearbeiten</span>
+        <span className="muted">Balken ziehen = verschieben · Ränder ziehen = Dauer ändern · Punkt rechts ziehen = Abhängigkeit · Pfeil klicken = Abhängigkeit bearbeiten · Doppelklick = bearbeiten</span>
       </footer>
 
       {editing && (

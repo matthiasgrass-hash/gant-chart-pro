@@ -15,7 +15,7 @@ export function wouldCreateCycle(tasks: Task[], taskId: string, predecessorId: s
     if (seen.has(id)) continue;
     seen.add(id);
     const task = byId.get(id);
-    if (task) stack.push(...task.dependencies);
+    if (task) stack.push(...task.dependencies.map((d) => d.taskId));
   }
   return false;
 }

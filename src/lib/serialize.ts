@@ -1,6 +1,8 @@
-import type { Column, ColumnKind, Project, Task } from '../types';
+import type { Column, ColumnKind, Dependency, DependencyType, Project, Task } from '../types';
 import { isValidIso } from './date';
 import { GE_COLOR } from './colors';
+import { alignLags } from './schedule';
+import { wouldCreateCycle } from './graph';
 import { DEFAULT_COLUMNS } from './columns';
 
 export function serializeProject(project: Project): string {
@@ -22,6 +24,7 @@ export function parseProject(text: string): Project {
   }
   const obj = raw as { name?: unknown; tasks: unknown[] };
   const ids = new Set<string>();
+  const legacy = new Set<string>();
   const tasks: Task[] = obj.tasks.map((item, index) => {
     const t = item as Partial<Record<keyof Task, unknown>>;
     const label = `Aufgabe ${index + 1}`;
@@ -39,12 +42,29 @@ export function parseProject(text: string): Project {
       end: t.end,
       progress,
       color: typeof t.color === 'string' && HEX_RE.test(t.color) ? t.color : GE_COLOR,
-      dependencies: Array.isArray(t.dependencies) ? t.dependencies.filter((d): d is string => typeof d === 'string') : [],
+      dependencies: parseDependencies(t.dependencies, legacy, t.id),
       fields: parseFields(t.fields),
     };
   });
   // Verweise auf nicht vorhandene Aufgaben entfernen
-  for (const task of tasks) task.dependencies = task.dependencies.filter((d) => ids.has(d) && d !== task.id);
+  for (const task of tasks) {
+    const seen = new Set<string>();
+    task.dependencies = task.dependencies.filter((d) => ids.has(d.taskId) && d.taskId !== task.id && !seen.has(d.taskId) && Boolean(seen.add(d.taskId)));
+  }
+  // Ältere Dateien (Abhängigkeiten nur als ID-Liste): Versatz so wählen, dass nichts verschoben wird
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  for (let i = 0; i < tasks.length; i++) {
+    if (legacy.has(tasks[i].id)) tasks[i] = alignLags(tasks[i], byId);
+  }
+  // Zyklen (z. B. aus Hand-bearbeiteten Dateien) auflösen
+  for (const task of tasks) {
+    const clean: typeof task.dependencies = [];
+    for (const d of task.dependencies) {
+      const probe = tasks.map((t) => (t.id === task.id ? { ...t, dependencies: clean } : t));
+      if (!wouldCreateCycle(probe, task.id, d.taskId)) clean.push(d);
+    }
+    task.dependencies = clean;
+  }
   const columns = parseColumns((obj as { columns?: unknown }).columns);
   // Nur Werte behalten, zu denen es eine Textspalte gibt
   const textIds = new Set(columns.filter((c) => c.kind === 'text').map((c) => c.id));
@@ -90,4 +110,26 @@ function parseColumns(raw: unknown): Column[] {
   const nameIndex = result.findIndex((c) => c.kind === 'name');
   const name = nameIndex >= 0 ? result.splice(nameIndex, 1)[0] : { ...DEFAULT_COLUMNS[0] };
   return [name, ...result];
+}
+
+const DEP_TYPES: DependencyType[] = ['FS', 'SS', 'FF', 'SF'];
+
+/** Liest Abhängigkeiten; alte Dateien enthalten nur IDs (= Ende→Anfang). */
+function parseDependencies(raw: unknown, legacy: Set<string>, taskId: unknown): Dependency[] {
+  if (!Array.isArray(raw)) return [];
+  const result: Dependency[] = [];
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      result.push({ taskId: item, type: 'FS', lag: 0 });
+      if (typeof taskId === 'string') legacy.add(taskId);
+    } else if (item && typeof item === 'object' && typeof (item as Dependency).taskId === 'string') {
+      const d = item as Partial<Dependency>;
+      result.push({
+        taskId: d.taskId!,
+        type: DEP_TYPES.includes(d.type as DependencyType) ? (d.type as DependencyType) : 'FS',
+        lag: typeof d.lag === 'number' && Number.isFinite(d.lag) ? Math.round(d.lag) : 0,
+      });
+    }
+  }
+  return result;
 }

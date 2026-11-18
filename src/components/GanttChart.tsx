@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type Ref } from 'react';
 import type { Task, ViewMode } from '../types';
-import { addDays, toDayNumber } from '../lib/date';
-import { BAR_HEIGHT, HEADER_HEIGHT, PX_PER_DAY, ROW_HEIGHT, barGeometry, dependencyPath, headerRows, type TimelineRange } from '../lib/timeline';
+import { addDays } from '../lib/date';
+import { dependencyLabel, setTaskDates } from '../lib/schedule';
+import { BAR_HEIGHT, HEADER_HEIGHT, PX_PER_DAY, ROW_HEIGHT, barGeometry, dependencyPathTyped, headerRows, type TimelineRange } from '../lib/timeline';
 
 interface Props {
   tasks: Task[];
@@ -14,7 +15,6 @@ interface Props {
   onEdit: (task: Task) => void;
   onChangeDates: (id: string, start: string, end: string) => void;
   onAddDependency: (taskId: string, predecessorId: string) => void;
-  onRemoveDependency: (taskId: string, predecessorId: string) => void;
 }
 
 type DragState =
@@ -36,7 +36,7 @@ function shiftTask(task: Task, drag: DragState | null): Task {
 }
 
 export function GanttChart(props: Props) {
-  const { tasks, view, range, today, selectedId, svgRef, onSelect, onEdit, onChangeDates, onAddDependency, onRemoveDependency } = props;
+  const { tasks, view, range, today, selectedId, svgRef, onSelect, onEdit, onChangeDates, onAddDependency } = props;
   const ppd = PX_PER_DAY[view];
   const width = range.days * ppd;
   const height = HEADER_HEIGHT + Math.max(tasks.length, 1) * ROW_HEIGHT;
@@ -46,7 +46,14 @@ export function GanttChart(props: Props) {
   const lastClick = useRef<{ id: string; time: number } | null>(null);
 
   const header = useMemo(() => headerRows(range, view), [range, view]);
-  const displayed = useMemo(() => tasks.map((t) => shiftTask(t, drag)), [tasks, drag]);
+  // Vorschau beim Ziehen: gezogene Aufgabe + automatisch mitwandernde Nachfolger
+  const displayed = useMemo(() => {
+    if (!drag || drag.kind === 'link' || drag.delta === 0) return tasks;
+    const original = tasks.find((t) => t.id === drag.id);
+    if (!original) return tasks;
+    const next = shiftTask(original, drag);
+    return setTaskDates(tasks, next.id, next.start, next.end);
+  }, [tasks, drag]);
   const rowOf = useMemo(() => new Map(displayed.map((t, i) => [t.id, i])), [displayed]);
 
   const setRefs = (node: SVGSVGElement | null) => {
@@ -208,17 +215,16 @@ export function GanttChart(props: Props) {
 
       {/* Abhängigkeiten */}
       {displayed.flatMap((t) =>
-        t.dependencies.map((depId) => {
-          const pred = displayed.find((d) => d.id === depId);
+        t.dependencies.map((dep) => {
+          const pred = displayed.find((d) => d.id === dep.taskId);
           if (!pred) return null;
           const a = barGeometry(pred, range, ppd);
           const b = barGeometry(t, range, ppd);
           const y1 = HEADER_HEIGHT + rowOf.get(pred.id)! * ROW_HEIGHT + ROW_HEIGHT / 2;
           const y2 = HEADER_HEIGHT + rowOf.get(t.id)! * ROW_HEIGHT + ROW_HEIGHT / 2;
-          const d = dependencyPath(a.x + a.width, y1, b.x, y2);
+          const d = dependencyPathTyped(dep.type, a, y1, b, y2);
           const active = selectedId === t.id || selectedId === pred.id;
-          const late = toDayNumber(t.start) <= toDayNumber(pred.end);
-          const color = late ? '#dc2626' : active ? '#6022a7' : '#64748b';
+          const color = active ? '#6022a7' : '#64748b';
           return (
             <g key={`dep-${pred.id}-${t.id}`} className="dependency">
               <path d={d} fill="none" stroke={color} strokeWidth={active ? 2 : 1.5} markerEnd={`url(#${active ? 'arrow-active' : 'arrow'})`} />
@@ -230,11 +236,9 @@ export function GanttChart(props: Props) {
                 data-export="exclude"
                 style={{ cursor: 'pointer' }}
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => {
-                  if (confirm(`Abhängigkeit „${pred.name}" → „${t.name}" entfernen?`)) onRemoveDependency(t.id, pred.id);
-                }}
+                onClick={() => onEdit(tasks.find((x) => x.id === t.id) ?? t)}
               >
-                <title>{`${pred.name} → ${t.name}${late ? ' (Konflikt: startet vor Ende des Vorgängers)' : ''} – klicken zum Entfernen`}</title>
+                <title>{`${pred.name} → ${t.name} (${dependencyLabel(dep)}) – klicken zum Bearbeiten`}</title>
               </path>
             </g>
           );

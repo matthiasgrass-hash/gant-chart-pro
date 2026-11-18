@@ -7,7 +7,8 @@ Alle Daten bleiben lokal im Browser (localStorage), es wird kein Server benötig
 
 - **Aufgaben & Zeitleiste** – Aufgaben anlegen, bearbeiten, löschen und sortieren; Zeitskala **Tag / Woche / Monat**, Wochenenden, Kalenderwochen, Heute-Linie
 - **Drag & Drop** – Balken ziehen verschiebt die Aufgabe, die Ränder ziehen ändert Start bzw. Ende (tagesgenau einrastend)
-- **Abhängigkeiten** (Ende → Anfang) – über den Dialog oder per Ziehen vom Punkt rechts am Balken auf eine andere Aufgabe; Pfeile werden gezeichnet, Konflikte (Nachfolger startet vor Ende des Vorgängers) rot markiert, zirkuläre Abhängigkeiten verhindert. Klick auf einen Pfeil entfernt ihn.
+- **Abhängigkeiten** in vier Arten – **EA** Ende→Anfang, **AA** Anfang→Anfang, **EE** Ende→Ende, **AE** Anfang→Ende – jeweils mit **Versatz in Tagen** (negativ = Überlappung). Anlegen per Ziehen vom Punkt rechts am Balken oder im Dialog; Klick auf einen Pfeil öffnet die Bearbeitung. Zirkuläre Abhängigkeiten werden verhindert.
+- **Automatische Planung** – wird eine Aufgabe verschoben oder ihre Dauer geändert, wandern alle Nachfolger (über die ganze Kette) automatisch mit, schon während des Ziehens. Verschiebt man eine abhängige Aufgabe selbst, bleibt sie liegen und ihr Versatz passt sich an.
 - **Spalten anpassen** – über „+ Spalte" eigene Textspalten anlegen (z. B. „Verantwortlich"), Spaltennamen per Klick umbenennen, Spalten über ✕ löschen; Start/Ende/Tage lassen sich ausblenden und wieder einblenden. Textzellen per Klick direkt bearbeiten oder im Aufgaben-Dialog.
 - **Fortschritt, Farben, Meilensteine** – Standardfarbe ist GE-Lila (`#6022a7`), andere Farben bei Bedarf im Dialog; eintägige Aufgaben werden in Wochen-/Monatsansicht als Raute dargestellt
 - **Import / Export** – Projekt als JSON speichern und wieder laden (mit Validierung), Diagramm als **PNG** oder **PDF** exportieren (mit GE-Logo, Projektüberschrift und allen Spalten der Aufgabenliste)
@@ -53,7 +54,8 @@ src/
   "name": "Mein Projekt",
   "tasks": [
     { "id": "a", "name": "Konzept", "start": "2026-11-16", "end": "2026-11-20",
-      "progress": 50, "color": "#6022a7", "dependencies": [],
+      "progress": 50, "color": "#6022a7",
+      "dependencies": [{ "taskId": "x", "type": "SS", "lag": 2 }],
       "fields": { "owner": "Anna" } }
   ],
   "columns": [
@@ -66,4 +68,4 @@ src/
 }
 ```
 
-`start` und `end` sind inklusive (eine Aufgabe von Montag bis Montag dauert 1 Tag). `columns` ist optional – ältere Dateien ohne Spalten bekommen die Standardspalten.
+`start` und `end` sind inklusive (eine Aufgabe von Montag bis Montag dauert 1 Tag). `dependencies[].type` ist `FS` (EA), `SS` (AA), `FF` (EE) oder `SF` (AE), `lag` der Versatz in Tagen. Ältere Dateien mit reinen ID-Listen werden als EA übernommen, ohne dass sich Termine verschieben. `columns` ist optional – ältere Dateien ohne Spalten bekommen die Standardspalten.

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import type { Column, Task } from '../types';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import type { Column, Dependency, DependencyType, Task } from '../types';
 import { TASK_COLORS } from '../lib/colors';
-import { durationDays, isValidIso } from '../lib/date';
+import { durationDays, formatDate, isValidIso } from '../lib/date';
+import { DEPENDENCY_TYPES, initialLag, schedule } from '../lib/schedule';
 import { wouldCreateCycle } from '../lib/graph';
 
 interface Props {
@@ -31,8 +32,26 @@ export function TaskDialog({ task, isNew, allTasks, columns, onSave, onDelete, o
 
   const update = <K extends keyof Task>(key: K, value: Task[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
-  const toggleDep = (id: string) =>
-    update('dependencies', draft.dependencies.includes(id) ? draft.dependencies.filter((d) => d !== id) : [...draft.dependencies, id]);
+  const depOf = (id: string) => draft.dependencies.find((d) => d.taskId === id);
+
+  const toggleDep = (pred: Task) =>
+    update(
+      'dependencies',
+      depOf(pred.id)
+        ? draft.dependencies.filter((d) => d.taskId !== pred.id)
+        : [...draft.dependencies, { taskId: pred.id, type: 'FS', lag: initialLag(draft, pred, 'FS') }],
+    );
+
+  const patchDep = (id: string, patch: Partial<Dependency>) =>
+    update('dependencies', draft.dependencies.map((d) => (d.taskId === id ? { ...d, ...patch } : d)));
+
+  // Vorschau: Wo landet die Aufgabe mit den eingestellten Abhängigkeiten?
+  const datesTouched = draft.start !== task.start || draft.end !== task.end;
+  const preview = useMemo(() => {
+    if (datesTouched || !draft.dependencies.length || !isValidIso(draft.start) || !isValidIso(draft.end) || draft.end < draft.start) return null;
+    const planned = schedule([...allTasks.filter((t) => t.id !== task.id), draft]).find((t) => t.id === task.id)!;
+    return planned.start === draft.start ? null : planned;
+  }, [allTasks, draft, task.id, datesTouched]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -109,15 +128,51 @@ export function TaskDialog({ task, isNew, allTasks, columns, onSave, onDelete, o
           {candidates.length === 0 && <p className="muted">Keine weiteren Aufgaben vorhanden.</p>}
           {candidates.map((c) => {
             const cyclic = wouldCreateCycle(graph, task.id, c.id);
+            const dep = depOf(c.id);
             return (
-              <label key={c.id} className={cyclic ? 'is-disabled' : ''} title={cyclic ? 'Würde eine zirkuläre Abhängigkeit erzeugen' : undefined}>
-                <input type="checkbox" checked={draft.dependencies.includes(c.id)} disabled={cyclic} onChange={() => toggleDep(c.id)} />
-                <i className="swatch" style={{ background: c.color }} />
-                {c.name}
-              </label>
+              <div key={c.id} className={`dep-row${dep ? ' is-active' : ''}`}>
+                <label className={cyclic ? 'is-disabled' : ''} title={cyclic ? 'Würde eine zirkuläre Abhängigkeit erzeugen' : undefined}>
+                  <input type="checkbox" checked={Boolean(dep)} disabled={cyclic} onChange={() => toggleDep(c)} />
+                  <i className="swatch" style={{ background: c.color }} />
+                  <span className="ellipsis">{c.name}</span>
+                </label>
+                {dep && (
+                  <div className="dep-settings">
+                    <select value={dep.type} onChange={(e) => patchDep(c.id, { type: e.target.value as DependencyType })} aria-label={`Art der Abhängigkeit zu ${c.name}`}>
+                      {DEPENDENCY_TYPES.map((t) => (
+                        <option key={t.type} value={t.type}>
+                          {t.short} – {t.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      step={1}
+                      value={dep.lag}
+                      onChange={(e) => patchDep(c.id, { lag: Math.round(Number(e.target.value) || 0) })}
+                      aria-label={`Versatz in Tagen zu ${c.name}`}
+                      title="Versatz in Tagen (negativ = Überlappung)"
+                    />
+                    <span className="muted">Tage</span>
+                  </div>
+                )}
+              </div>
             );
           })}
         </fieldset>
+        {draft.dependencies.length > 0 && (
+          <p className="hint">
+            Der Start wird automatisch aus den Vorgängern berechnet. Änderst du oben das Datum, passt sich der Versatz an.
+            {preview && (
+              <>
+                {' '}
+                <strong>
+                  Neue Planung: {formatDate(preview.start)} – {formatDate(preview.end)}
+                </strong>
+              </>
+            )}
+          </p>
+        )}
 
         {error && <p className="error" role="alert">{error}</p>}
 

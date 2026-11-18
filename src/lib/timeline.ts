@@ -1,4 +1,4 @@
-import type { Task, ViewMode } from '../types';
+import type { DependencyType, Task, ViewMode } from '../types';
 import { MONTHS_LONG, MONTHS_SHORT, WEEKDAYS_SHORT, dateParts, isoWeek, startOfMonth, startOfWeek, toDayNumber } from './date';
 
 export const ROW_HEIGHT = 40;
@@ -96,4 +96,31 @@ export function dependencyPath(x1: number, y1: number, x2: number, y2: number): 
   }
   const midY = y1 + (y2 > y1 ? ROW_HEIGHT / 2 : -ROW_HEIGHT / 2);
   return `M ${x1} ${y1} H ${x1 + gap} V ${midY} H ${x2 - gap} V ${y2} H ${x2}`;
+}
+
+/**
+ * Pfeilpfad je nach Abhängigkeitsart. Startpunkt ist Anfang oder Ende des Vorgängers,
+ * Ziel Anfang (Pfeil von links) oder Ende (Pfeil von rechts) des Nachfolgers.
+ */
+export function dependencyPathTyped(
+  type: DependencyType,
+  a: { x: number; width: number },
+  y1: number,
+  b: { x: number; width: number },
+  y2: number,
+): string {
+  const gap = 10;
+  const fromEnd = type === 'FS' || type === 'FF';
+  const toStart = type === 'FS' || type === 'SS';
+  const x1 = fromEnd ? a.x + a.width : a.x;
+  const x2 = toStart ? b.x : b.x + b.width;
+  if (type === 'FS') return dependencyPath(x1, y1, x2, y2);
+  const ox1 = x1 + (fromEnd ? gap : -gap);
+  const ox2 = x2 + (toStart ? -gap : gap);
+  if (type === 'SS') return `M ${x1} ${y1} H ${Math.min(ox1, ox2)} V ${y2} H ${x2}`;
+  if (type === 'FF') return `M ${x1} ${y1} H ${Math.max(ox1, ox2)} V ${y2} H ${x2}`;
+  // SF: vom Anfang des Vorgängers nach links, ans Ende des Nachfolgers von rechts
+  if (ox2 <= ox1) return `M ${x1} ${y1} H ${ox2} V ${y2} H ${x2}`;
+  const midY = y1 + (y2 > y1 ? ROW_HEIGHT / 2 : -ROW_HEIGHT / 2);
+  return `M ${x1} ${y1} H ${ox1} V ${midY} H ${ox2} V ${y2} H ${x2}`;
 }
