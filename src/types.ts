@@ -43,6 +43,8 @@ export interface Column {
 
 export interface Project {
   version: 1;
+  /** Rechenbasis: Arbeitstage Mo–Fr ohne bundesweite Feiertage. Fehlt bei älteren Dateien (Kalendertage). */
+  calendar: 'workdays';
   name: string;
   columns: Column[];
   tasks: Task[];

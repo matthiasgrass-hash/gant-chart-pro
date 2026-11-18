@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { Column, Dependency, DependencyType, Task } from '../types';
 import { TASK_COLORS } from '../lib/colors';
-import { durationDays, formatDate, isValidIso } from '../lib/date';
+import { formatDate, isValidIso } from '../lib/date';
+import { workDays } from '../lib/workdays';
 import { DEPENDENCY_TYPES, initialLag, schedule } from '../lib/schedule';
 import { wouldCreateCycle } from '../lib/graph';
 
@@ -83,7 +84,7 @@ export function TaskDialog({ task, isNew, allTasks, columns, onSave, onDelete, o
           </label>
           <div className="field">
             <span>Dauer</span>
-            <output>{isValidIso(draft.start) && isValidIso(draft.end) && draft.end >= draft.start ? `${durationDays(draft.start, draft.end)} Tage` : '–'}</output>
+            <output>{isValidIso(draft.start) && isValidIso(draft.end) && draft.end >= draft.start ? `${workDays(draft.start, draft.end)} Arbeitstage` : '–'}</output>
           </div>
 
         <label className="field field--inline">
@@ -96,7 +97,7 @@ export function TaskDialog({ task, isNew, allTasks, columns, onSave, onDelete, o
             onChange={(e) => update('buffer', Math.max(0, Math.round(Number(e.target.value) || 0)))}
             aria-describedby="buffer-hint"
           />
-          <span className="muted">Tage</span>
+          <span className="muted">Arbeitstage</span>
           <small id="buffer-hint" className="muted">Nachfolger (EA/EE) starten erst nach dem Puffer.</small>
         </label>
         </div>
@@ -164,10 +165,10 @@ export function TaskDialog({ task, isNew, allTasks, columns, onSave, onDelete, o
                       step={1}
                       value={dep.lag}
                       onChange={(e) => patchDep(c.id, { lag: Math.round(Number(e.target.value) || 0) })}
-                      aria-label={`Versatz in Tagen zu ${c.name}`}
-                      title="Versatz in Tagen (negativ = Überlappung)"
+                      aria-label={`Versatz in Arbeitstagen zu ${c.name}`}
+                      title="Versatz in Arbeitstagen (negativ = Überlappung)"
                     />
-                    <span className="muted">Tage</span>
+                    <span className="muted">AT</span>
                   </div>
                 )}
               </div>

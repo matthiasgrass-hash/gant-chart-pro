@@ -52,10 +52,12 @@ export function parseProject(text: string): Project {
     const seen = new Set<string>();
     task.dependencies = task.dependencies.filter((d) => ids.has(d.taskId) && d.taskId !== task.id && !seen.has(d.taskId) && Boolean(seen.add(d.taskId)));
   }
-  // Ältere Dateien (Abhängigkeiten nur als ID-Liste): Versatz so wählen, dass nichts verschoben wird
+  // Ältere Dateien (Abhängigkeiten nur als ID-Liste oder Versatz in Kalendertagen):
+  // Versatz in Arbeitstagen so wählen, dass sich keine Starttermine verschieben
+  const calendarDays = (obj as { calendar?: unknown }).calendar !== 'workdays';
   const byId = new Map(tasks.map((t) => [t.id, t]));
   for (let i = 0; i < tasks.length; i++) {
-    if (legacy.has(tasks[i].id)) tasks[i] = alignLags(tasks[i], byId);
+    if (calendarDays || legacy.has(tasks[i].id)) tasks[i] = alignLags(tasks[i], byId);
   }
   // Zyklen (z. B. aus Hand-bearbeiteten Dateien) auflösen
   for (const task of tasks) {
@@ -76,6 +78,7 @@ export function parseProject(text: string): Project {
   }
   return {
     version: 1,
+    calendar: 'workdays',
     name: typeof obj.name === 'string' && obj.name.trim() ? obj.name : 'Importiertes Projekt',
     columns,
     tasks,

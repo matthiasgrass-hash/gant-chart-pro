@@ -1,5 +1,6 @@
 import type { Column, ColumnKind, Task } from '../types';
-import { durationDays, formatDate } from './date';
+import { formatDate } from './date';
+import { workDays } from './workdays';
 
 export const BUILTIN_LABELS: Record<Exclude<ColumnKind, 'text'>, string> = {
   name: 'Aufgabe',
@@ -36,7 +37,7 @@ export function cellText(task: Task, column: Column): string {
     case 'end':
       return formatDate(task.end);
     case 'duration':
-      return String(durationDays(task.start, task.end));
+      return String(workDays(task.start, task.end));
     case 'buffer':
       return task.buffer ? String(task.buffer) : '–';
     case 'text':

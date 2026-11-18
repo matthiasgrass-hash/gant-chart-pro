@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type Ref } from 'react';
 import type { Task, ViewMode } from '../types';
-import { addDays } from '../lib/date';
-import { bufferDays, dependencyLabel, setTaskDates } from '../lib/schedule';
+import { addDays, toDayNumber } from '../lib/date';
+import { bufferEndDay, dependencyLabel, setTaskDates } from '../lib/schedule';
 import { BAR_HEIGHT, HEADER_HEIGHT, PX_PER_DAY, ROW_HEIGHT, barGeometry, dependencyPathTyped, headerRows, type TimelineRange } from '../lib/timeline';
 
 interface Props {
@@ -169,7 +169,11 @@ export function GanttChart(props: Props) {
       <rect x={0} y={0} width={width} height={height} fill="#ffffff" />
       {view === 'day' &&
         header.bottom.map((c) =>
-          c.weekend ? <rect key={`we-${c.x}`} x={c.x} y={HEADER_HEIGHT} width={c.width} height={height - HEADER_HEIGHT} fill="#f1f5f9" /> : null,
+          c.weekend ? (
+            <rect key={`we-${c.x}`} x={c.x} y={HEADER_HEIGHT} width={c.width} height={height - HEADER_HEIGHT} fill={c.holiday ? '#f1edf9' : '#f1f5f9'}>
+              {c.holiday && <title>{`${c.holiday} (arbeitsfrei)`}</title>}
+            </rect>
+          ) : null,
         )}
       {displayed.map((t, i) =>
         t.id === selectedId ? <rect key={`sel-${t.id}`} data-export="exclude" x={0} y={HEADER_HEIGHT + i * ROW_HEIGHT} width={width} height={ROW_HEIGHT} fill="#f3eefb" /> : null,
@@ -202,10 +206,11 @@ export function GanttChart(props: Props) {
           y={(HEADER_HEIGHT * 3) / 4 + 4}
           fontSize={view === 'day' ? 10 : 11}
           textAnchor="middle"
-          fill={view === 'day' && range.startDay + c.x / ppd === today ? '#dc2626' : c.weekend ? '#94a3b8' : '#475569'}
-          fontWeight={view === 'day' && range.startDay + c.x / ppd === today ? 700 : undefined}
+          fill={view === 'day' && range.startDay + c.x / ppd === today ? '#dc2626' : c.holiday ? '#6022a7' : c.weekend ? '#94a3b8' : '#475569'}
+          fontWeight={view === 'day' && range.startDay + c.x / ppd === today ? 700 : c.holiday ? 600 : undefined}
         >
           {c.width >= 24 ? c.label : ''}
+          {c.holiday && <title>{`${c.holiday} (arbeitsfrei)`}</title>}
         </text>
       ))}
       <line x1={0} x2={width} y1={HEADER_HEIGHT - 0.5} y2={HEADER_HEIGHT - 0.5} stroke="#cbd5e1" />
@@ -227,7 +232,8 @@ export function GanttChart(props: Props) {
           const y1 = HEADER_HEIGHT + rowOf.get(pred.id)! * ROW_HEIGHT + ROW_HEIGHT / 2;
           const y2 = HEADER_HEIGHT + rowOf.get(t.id)! * ROW_HEIGHT + ROW_HEIGHT / 2;
           // Ende-basierte Pfeile starten am Ende des Puffers
-          const aWithBuffer = { x: a.x, width: a.width + bufferDays(pred) * ppd };
+          const predBufEnd = bufferEndDay(pred);
+          const aWithBuffer = { x: a.x, width: a.width + (predBufEnd === null ? 0 : (predBufEnd - toDayNumber(pred.end)) * ppd) };
           const d = dependencyPathTyped(dep.type, aWithBuffer, y1, b, y2);
           const active = selectedId === t.id || selectedId === pred.id;
           const color = active ? '#6022a7' : '#64748b';
@@ -254,7 +260,8 @@ export function GanttChart(props: Props) {
       {/* Balken */}
       {displayed.map((t, i) => {
         const { x, width: w } = barGeometry(t, range, ppd);
-        const bufferW = bufferDays(t) * ppd;
+        const bufEnd = bufferEndDay(t);
+        const bufferW = bufEnd === null ? 0 : (bufEnd - toDayNumber(t.end)) * ppd;
         const y = HEADER_HEIGHT + i * ROW_HEIGHT + (ROW_HEIGHT - BAR_HEIGHT) / 2;
         const isMilestone = t.start === t.end && view !== 'day';
         const selected = t.id === selectedId;
@@ -266,7 +273,7 @@ export function GanttChart(props: Props) {
             <title>{`${t.name}\n${t.start} – ${t.end}\nFortschritt: ${t.progress} %`}</title>
             {bufferW > 0 && (
               <rect x={x + w} y={y + 3} width={bufferW} height={BAR_HEIGHT - 6} rx={3} fill="url(#buffer-hatch)" stroke="#6022a7" strokeOpacity={0.5} strokeDasharray="3 2">
-                <title>{`Puffer: ${t.buffer} ${t.buffer === 1 ? 'Tag' : 'Tage'}`}</title>
+                <title>{`Puffer: ${t.buffer} ${t.buffer === 1 ? 'Arbeitstag' : 'Arbeitstage'}`}</title>
               </rect>
             )}
             {isMilestone ? (

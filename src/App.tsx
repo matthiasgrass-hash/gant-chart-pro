@@ -5,6 +5,7 @@ import { loadProject, saveProject } from './lib/storage';
 import { DEFAULT_PROJECT_NAME, createSampleProject } from './lib/sample';
 import { addDays, toDayNumber, todayIso } from './lib/date';
 import { createId } from './lib/id';
+import { endAfterWorkdays, nextWorkday } from './lib/workdays';
 import { GE_COLOR } from './lib/colors';
 import { parseProject, serializeProject } from './lib/serialize';
 import { PX_PER_DAY, computeRange } from './lib/timeline';
@@ -87,12 +88,12 @@ export default function App() {
 
   const newTask = (): Task => {
     const selected = project.tasks.find((t) => t.id === selectedId);
-    const start = selected ? addDays(selected.end, 1) : todayIso();
+    const start = nextWorkday(selected ? addDays(selected.end, 1) : todayIso());
     return {
       id: createId(),
       name: '',
       start,
-      end: addDays(start, 4),
+      end: endAfterWorkdays(start, 5),
       progress: 0,
       color: GE_COLOR,
       dependencies: selected ? [{ taskId: selected.id, type: 'FS', lag: 0 }] : [],
@@ -219,7 +220,7 @@ export default function App() {
       </main>
 
       <footer className="statusbar">
-        <span>{project.tasks.length} Aufgaben</span>
+        <span>{project.tasks.length} Aufgaben · Tage = Arbeitstage (Mo–Fr ohne bundesweite Feiertage)</span>
         <span className="muted">Balken ziehen = verschieben · Ränder ziehen = Dauer ändern · Punkt rechts ziehen = Abhängigkeit · Pfeil klicken = Abhängigkeit bearbeiten · Doppelklick = bearbeiten</span>
       </footer>
 

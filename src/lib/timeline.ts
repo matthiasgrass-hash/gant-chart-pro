@@ -1,4 +1,5 @@
 import type { DependencyType, Task, ViewMode } from '../types';
+import { holidayName, isNonWorking } from './workdays';
 import { MONTHS_LONG, MONTHS_SHORT, WEEKDAYS_SHORT, dateParts, isoWeek, startOfMonth, startOfWeek, toDayNumber } from './date';
 
 export const ROW_HEIGHT = 40;
@@ -16,7 +17,9 @@ export interface HeaderCell {
   x: number;
   width: number;
   label: string;
+  /** arbeitsfrei (Wochenende oder Feiertag) */
   weekend?: boolean;
+  holiday?: string | null;
 }
 
 /** Sichtbarer Zeitraum: alle Aufgaben plus Puffer, an Woche/Monat ausgerichtet. */
@@ -65,7 +68,8 @@ export function headerRows(range: TimelineRange, view: ViewMode): { top: HeaderC
       top: segments(range, ppd, monthKey, (d) => `${MONTHS_LONG[dateParts(d).month]} ${dateParts(d).year}`),
       bottom: Array.from({ length: range.days }, (_, i) => {
         const p = dateParts(range.startDay + i);
-        return { x: i * ppd, width: ppd, label: `${WEEKDAYS_SHORT[p.weekday]} ${p.date}`, weekend: p.weekday === 0 || p.weekday === 6 };
+        const day = range.startDay + i;
+        return { x: i * ppd, width: ppd, label: `${WEEKDAYS_SHORT[p.weekday]} ${p.date}`, weekend: isNonWorking(day), holiday: holidayName(day) };
       }),
     };
   }

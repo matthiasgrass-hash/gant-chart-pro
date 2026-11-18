@@ -15,6 +15,14 @@ Alle Daten bleiben lokal im Browser (localStorage), es wird kein Server benötig
 - **Import / Export** – Projekt als JSON speichern und wieder laden (mit Validierung), Diagramm als **PNG** oder **PDF** exportieren (mit GE-Logo, Projektüberschrift und allen Spalten der Aufgabenliste)
 - Tastatur: `Enter` bearbeitet, `Entf` löscht die ausgewählte Aufgabe, `Esc` hebt die Auswahl auf
 
+### Arbeitstage
+
+Alle Dauern, Versätze und Puffer werden in **Arbeitstagen** gerechnet: Montag–Freitag ohne die
+bundesweiten gesetzlichen Feiertage (Neujahr, Karfreitag, Ostermontag, 1. Mai, Christi Himmelfahrt,
+Pfingstmontag, Tag der Deutschen Einheit, 1. und 2. Weihnachtstag). Die Zeitachse zeigt weiterhin
+alle Kalendertage; Wochenenden und Feiertage sind grau hinterlegt, Feiertage im Kopf lila markiert.
+Start und Ende liegen immer auf Arbeitstagen; beim Verschieben bleibt die Zahl der Arbeitstage gleich.
+
 ## Loslegen
 
 ```bash
@@ -52,6 +60,7 @@ src/
 ```json
 {
   "version": 1,
+  "calendar": "workdays",
   "name": "Mein Projekt",
   "tasks": [
     { "id": "a", "name": "Konzept", "start": "2026-11-16", "end": "2026-11-20",
@@ -69,4 +78,4 @@ src/
 }
 ```
 
-`start` und `end` sind inklusive (eine Aufgabe von Montag bis Montag dauert 1 Tag). `dependencies[].type` ist `FS` (EA), `SS` (AA), `FF` (EE) oder `SF` (AE), `lag` der Versatz in Tagen. Ältere Dateien mit reinen ID-Listen werden als EA übernommen, ohne dass sich Termine verschieben. `columns` ist optional – ältere Dateien ohne Spalten bekommen die Standardspalten.
+`start` und `end` sind inklusive (eine Aufgabe von Montag bis Montag dauert 1 Tag). `dependencies[].type` ist `FS` (EA), `SS` (AA), `FF` (EE) oder `SF` (AE), `lag` der Versatz in Arbeitstagen. Dateien ohne `"calendar": "workdays"` stammen aus der Kalendertage-Version; ihr Versatz wird beim Import so umgerechnet, dass sich keine Termine verschieben. Ältere Dateien mit reinen ID-Listen werden als EA übernommen, ohne dass sich Termine verschieben. `columns` ist optional – ältere Dateien ohne Spalten bekommen die Standardspalten.
