@@ -3,6 +3,7 @@ import { COLUMN_WIDTH, cellText, isNumericColumn } from './columns';
 import { HEADER_HEIGHT, ROW_HEIGHT } from './timeline';
 
 const TABLE_PAD = 16;
+const PDF_MARGIN = 38;
 const COL_GAP = 12;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const BRAND = '#6022a7';
@@ -173,7 +174,11 @@ export async function exportPng(chart: SVGSVGElement, project: Project): Promise
 export async function exportPdf(chart: SVGSVGElement, project: Project): Promise<void> {
   const { canvas, width, height } = await renderExport(chart, project, 14000);
   const { jsPDF } = await import('jspdf');
-  const pdf = new jsPDF({ orientation: width >= height ? 'landscape' : 'portrait', unit: 'px', format: [width, height], hotfixes: ['px_scaling'] });
-  pdf.addImage(canvas, 'PNG', 0, 0, width, height, undefined, 'FAST');
+  // Seitenrand ringsum (1 cm bei 96 dpi ≈ 38 px); die Seite wächst entsprechend mit
+  const m = PDF_MARGIN;
+  const pageW = width + 2 * m;
+  const pageH = height + 2 * m;
+  const pdf = new jsPDF({ orientation: pageW >= pageH ? 'landscape' : 'portrait', unit: 'px', format: [pageW, pageH], hotfixes: ['px_scaling'] });
+  pdf.addImage(canvas, 'PNG', m, m, width, height, undefined, 'FAST');
   pdf.save(`${fileBaseName(project)}.pdf`);
 }
