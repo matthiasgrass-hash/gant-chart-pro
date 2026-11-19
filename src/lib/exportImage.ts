@@ -246,11 +246,18 @@ function imageToPngDataUrl(img: HTMLImageElement): string {
 }
 
 /**
+ * `viewer`: vorab (beim Klick) geöffneter Tab, in dem das fertige PDF angezeigt wird.
+ *
  * PDF-Export als Vektorgrafik (Text und Linien bleiben bei jedem Zoom scharf, Text ist durchsuchbar).
  * Immer im hellen Design; `legend` = Zuständigkeiten für die Legende oder null für ohne.
  * Fällt auf ein hochaufgelöstes Bild zurück, falls die Vektor-Umwandlung scheitert.
  */
-export async function exportPdf(chart: SVGSVGElement, project: Project, legend: Responsibility[] | null = null): Promise<void> {
+export async function exportPdf(
+  chart: SVGSVGElement,
+  project: Project,
+  legend: Responsibility[] | null = null,
+  viewer: Window | null = null,
+): Promise<void> {
   const { jsPDF } = await import('jspdf');
   const logo = await loadLogo();
   const { svg, width, height, logoRect } = buildExportSvg(chart, project, Boolean(logo), legend, 'helvetica');
@@ -281,5 +288,9 @@ export async function exportPdf(chart: SVGSVGElement, project: Project, legend: 
     const raster = await renderExport(chart, project, 14000, legend);
     pdf.addImage(raster.canvas, 'PNG', m, m, w, h, undefined, 'FAST');
   }
-  pdf.save(`${fileBaseName(project)}.pdf`);
+  const filename = `${fileBaseName(project)}.pdf`;
+  const blob = pdf.output('blob');
+  downloadBlob(blob, filename);
+  // Fertiges PDF im vorab geöffneten Tab anzeigen (der Blob-URL bleibt dafür gültig)
+  if (viewer && !viewer.closed) viewer.location.href = URL.createObjectURL(new File([blob], filename, { type: 'application/pdf' }));
 }

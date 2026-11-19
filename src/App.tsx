@@ -46,6 +46,20 @@ function writePref(key: string, value: string): void {
   }
 }
 
+/** Leeren Tab für das PDF öffnen und „wird erstellt…“ anzeigen; null, falls ein Pop-up-Blocker ihn verhindert. */
+function openPdfViewer(): Window | null {
+  const win = window.open('', '_blank');
+  if (!win) return null;
+  try {
+    win.document.title = 'PDF wird erstellt…';
+    win.document.body.style.cssText = 'font-family:system-ui,sans-serif;display:grid;place-items:center;height:100vh;margin:0;color:#475569';
+    win.document.body.textContent = 'PDF wird erstellt…';
+  } catch {
+    /* Inhalt ist optional */
+  }
+  return win;
+}
+
 /** Gespeicherte Wahl, sonst die Systemeinstellung. */
 function initialTheme(): Theme {
   const saved = readPref(THEME_KEY, '');
@@ -195,6 +209,8 @@ export default function App() {
 
   /** Export: Diagramm für den gewählten Zeitraum neu zeichnen (unabhängig von der Bildschirmansicht). */
   const runExport = async (format: 'png' | 'pdf') => {
+    // Tab für das PDF sofort beim Klick öffnen – später (nach dem Erzeugen) würde ihn der Pop-up-Blocker verhindern
+    const viewer = format === 'pdf' ? openPdfViewer() : null;
     try {
       const { range: exportRange, tasks } = exportTimeline(displayTasks, view, {
         mode: exportOptions.rangeMode,
@@ -202,14 +218,19 @@ export default function App() {
         to: exportOptions.to,
       });
       if (!tasks.length) {
+        viewer?.close();
         setToast({ text: 'Im gewählten Zeitraum liegen keine Aufgaben.', kind: 'error' });
         return;
       }
       const chart = renderChartSvg(tasks, view, exportRange, today);
       const exported = { ...project, tasks };
       const legend = exportOptions.legend ? usedResponsibilities(exported) : null;
-      await (format === 'pdf' ? exportPdf(chart, exported, legend) : exportPng(chart, exported, legend));
+      await (format === 'pdf' ? exportPdf(chart, exported, legend, viewer) : exportPng(chart, exported, legend));
+      if (format === 'pdf' && !viewer) {
+        setToast({ text: 'PDF gespeichert. Zum automatischen Öffnen bitte Pop-ups für diese Seite erlauben.', kind: 'info' });
+      }
     } catch (err) {
+      viewer?.close();
       setToast({ text: err instanceof Error ? err.message : 'Export fehlgeschlagen.', kind: 'error' });
     }
   };
