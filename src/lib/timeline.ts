@@ -2,13 +2,13 @@ import type { DependencyType, Task, ViewMode } from '../types';
 import { holidayName, isNonWorking } from './workdays';
 import { MONTHS_LONG, MONTHS_SHORT, WEEKDAYS_SHORT, dateParts, isoWeek, startOfMonth, startOfWeek, toDayNumber } from './date';
 
-export const ROW_HEIGHT = 42;
-export const HEADER_HEIGHT = 60;
-export const BAR_HEIGHT = 26;
+export const ROW_HEIGHT = 46;
+export const HEADER_HEIGHT = 64;
+export const BAR_HEIGHT = 28;
 
 /** Schriftgröße der Balkenbeschriftung und geschätzte Breite pro Zeichen */
-export const BAR_FONT = 13;
-const CHAR_W = 7.6;
+export const BAR_FONT = 14;
+const CHAR_W = 8.2;
 
 /** Geschätzte Breite einer Beschriftung in Pixeln */
 export function labelWidth(text: string): number {
@@ -20,7 +20,7 @@ export function labelFitsInside(text: string, barWidth: number): boolean {
   return barWidth > labelWidth(text) + 16;
 }
 
-export const PX_PER_DAY: Record<ViewMode, number> = { day: 36, week: 16, month: 5 };
+export const PX_PER_DAY: Record<ViewMode, number> = { day: 40, week: 18, month: 6 };
 
 export interface TimelineRange {
   startDay: number;

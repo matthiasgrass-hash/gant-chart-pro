@@ -190,7 +190,7 @@ export function GanttChart(props: Props) {
       {header.top.map((c) => (
         <g key={`t-${c.x}`}>
           <line x1={c.x + 0.5} x2={c.x + 0.5} y1={0} y2={HEADER_HEIGHT / 2} stroke="#cbd5e1" />
-          <text x={c.x + 8} y={HEADER_HEIGHT / 4 + 5} fontSize={13} fontWeight={600} fill="#334155">
+          <text x={c.x + 8} y={HEADER_HEIGHT / 4 + 5} fontSize={14} fontWeight={600} fill="#334155">
             {c.width > 40 ? c.label : ''}
           </text>
         </g>
@@ -204,7 +204,7 @@ export function GanttChart(props: Props) {
           key={`b-${c.x}`}
           x={c.x + c.width / 2}
           y={(HEADER_HEIGHT * 3) / 4 + 4}
-          fontSize={view === 'day' ? 11 : 12}
+          fontSize={view === 'day' ? 12 : 13}
           textAnchor="middle"
           fill={view === 'day' && range.startDay + c.x / ppd === today ? '#dc2626' : c.holiday ? '#6022a7' : c.weekend ? '#94a3b8' : '#475569'}
           fontWeight={view === 'day' && range.startDay + c.x / ppd === today ? 700 : c.holiday ? 600 : undefined}
@@ -316,7 +316,7 @@ export function GanttChart(props: Props) {
                     <clipPath id={`progress-clip-${i}`}>
                       <rect x={x} y={y} width={progressW} height={BAR_HEIGHT} />
                     </clipPath>
-                    <text x={labelX} y={y + BAR_HEIGHT / 2 + 4} fontSize={BAR_FONT} fill="#1e1b2e" pointerEvents="none">
+                    <text x={labelX} y={y + BAR_HEIGHT / 2 + 4} fontSize={BAR_FONT} fontWeight={500} fill="#1e1b2e" pointerEvents="none">
                       {t.name}
                     </text>
                     {progressW > 0 && (
@@ -388,7 +388,7 @@ export function GanttChart(props: Props) {
       )}
 
       {tasks.length === 0 && (
-        <text x={24} y={HEADER_HEIGHT + ROW_HEIGHT / 2 + 4} fontSize={14} fill="#94a3b8">
+        <text x={24} y={HEADER_HEIGHT + ROW_HEIGHT / 2 + 4} fontSize={15} fill="#94a3b8">
           Noch keine Aufgaben – lege mit „Neue Aufgabe" die erste an.
         </text>
       )}
