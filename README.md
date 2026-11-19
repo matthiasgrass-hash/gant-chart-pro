@@ -1,7 +1,9 @@
-# Gantt Chart Pro
+# Gantt Chart Easy
 
 Interaktiver Gantt-Diagramm-Editor im Browser – gebaut mit **React 18, TypeScript und Vite**.
 Alle Daten bleiben lokal im Browser (localStorage), es wird kein Server benötigt.
+
+**Live:** https://matthiasgrass-hash.github.io/gantt-chart-easy/
 
 ## Funktionen
 
@@ -37,7 +39,7 @@ npm test           # Unit-Tests (Vitest)
 npm run typecheck  # TypeScript-Prüfung
 ```
 
-Der Build verwendet relative Pfade (`base: './'`) und kann daher direkt z. B. über GitHub Pages ausgeliefert werden.
+Der Build verwendet relative Pfade (`base: './'`) und wird bei jedem Push auf `main` per GitHub Actions auf GitHub Pages veröffentlicht. Die Speicher-Schlüssel im Browser heißen aus Kompatibilitätsgründen weiterhin `gant-chart-pro:…`.
 
 ## Projektstruktur
 
