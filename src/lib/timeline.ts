@@ -2,9 +2,23 @@ import type { DependencyType, Task, ViewMode } from '../types';
 import { holidayName, isNonWorking } from './workdays';
 import { MONTHS_LONG, MONTHS_SHORT, WEEKDAYS_SHORT, dateParts, isoWeek, startOfMonth, startOfWeek, toDayNumber } from './date';
 
-export const ROW_HEIGHT = 40;
-export const HEADER_HEIGHT = 56;
-export const BAR_HEIGHT = 24;
+export const ROW_HEIGHT = 42;
+export const HEADER_HEIGHT = 60;
+export const BAR_HEIGHT = 26;
+
+/** Schriftgröße der Balkenbeschriftung und geschätzte Breite pro Zeichen */
+export const BAR_FONT = 13;
+const CHAR_W = 7.6;
+
+/** Geschätzte Breite einer Beschriftung in Pixeln */
+export function labelWidth(text: string): number {
+  return text.length * CHAR_W;
+}
+
+/** Passt die Beschriftung in den Balken? Sonst steht sie rechts daneben. */
+export function labelFitsInside(text: string, barWidth: number): boolean {
+  return barWidth > labelWidth(text) + 16;
+}
 
 export const PX_PER_DAY: Record<ViewMode, number> = { day: 36, week: 16, month: 5 };
 

@@ -24,7 +24,7 @@ export const BUILTIN_COLUMNS: Column[] = [
 
 export const DEFAULT_COLUMNS: Column[] = BUILTIN_COLUMNS.slice(0, 5);
 
-export const COLUMN_WIDTH: Record<ColumnKind, number> = { name: 220, start: 88, end: 88, duration: 52, responsibility: 130, buffer: 60, text: 140 };
+export const COLUMN_WIDTH: Record<ColumnKind, number> = { name: 240, start: 96, end: 96, duration: 60, responsibility: 140, buffer: 64, text: 150 };
 
 export const ACTIONS_WIDTH = 96;
 

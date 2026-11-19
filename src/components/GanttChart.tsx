@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type
 import type { Task, ViewMode } from '../types';
 import { addDays, toDayNumber } from '../lib/date';
 import { bufferEndDay, dependencyLabel, setTaskDates } from '../lib/schedule';
-import { BAR_HEIGHT, HEADER_HEIGHT, PX_PER_DAY, ROW_HEIGHT, barGeometry, dependencyPathTyped, headerRows, type TimelineRange } from '../lib/timeline';
+import { BAR_HEIGHT, HEADER_HEIGHT, PX_PER_DAY, ROW_HEIGHT, BAR_FONT, barGeometry, dependencyPathTyped, headerRows, labelFitsInside, type TimelineRange } from '../lib/timeline';
 
 interface Props {
   tasks: Task[];
@@ -190,7 +190,7 @@ export function GanttChart(props: Props) {
       {header.top.map((c) => (
         <g key={`t-${c.x}`}>
           <line x1={c.x + 0.5} x2={c.x + 0.5} y1={0} y2={HEADER_HEIGHT / 2} stroke="#cbd5e1" />
-          <text x={c.x + 8} y={HEADER_HEIGHT / 4 + 5} fontSize={12} fontWeight={600} fill="#334155">
+          <text x={c.x + 8} y={HEADER_HEIGHT / 4 + 5} fontSize={13} fontWeight={600} fill="#334155">
             {c.width > 40 ? c.label : ''}
           </text>
         </g>
@@ -204,7 +204,7 @@ export function GanttChart(props: Props) {
           key={`b-${c.x}`}
           x={c.x + c.width / 2}
           y={(HEADER_HEIGHT * 3) / 4 + 4}
-          fontSize={view === 'day' ? 10 : 11}
+          fontSize={view === 'day' ? 11 : 12}
           textAnchor="middle"
           fill={view === 'day' && range.startDay + c.x / ppd === today ? '#dc2626' : c.holiday ? '#6022a7' : c.weekend ? '#94a3b8' : '#475569'}
           fontWeight={view === 'day' && range.startDay + c.x / ppd === today ? 700 : c.holiday ? 600 : undefined}
@@ -215,12 +215,6 @@ export function GanttChart(props: Props) {
       ))}
       <line x1={0} x2={width} y1={HEADER_HEIGHT - 0.5} y2={HEADER_HEIGHT - 0.5} stroke="#cbd5e1" />
 
-      {/* Heute-Linie */}
-      {todayX >= 0 && todayX <= width && (
-        <g>
-          <line x1={todayX + ppd / 2} x2={todayX + ppd / 2} y1={HEADER_HEIGHT} y2={height} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4 3" />
-        </g>
-      )}
 
       {/* Abhängigkeiten */}
       {displayed.flatMap((t) =>
@@ -266,7 +260,9 @@ export function GanttChart(props: Props) {
         const isMilestone = t.start === t.end && view !== 'day';
         const selected = t.id === selectedId;
         const linkTarget = hoverLink === t.id;
-        const labelInside = w > t.name.length * 7 + 16;
+        // Beginnt der Balken vor dem sichtbaren Zeitraum (Export „Bereich“), steht die Beschriftung im sichtbaren Teil
+        const labelX = Math.max(x, 0) + 8;
+        const labelInside = labelFitsInside(t.name, x + w - Math.max(x, 0));
         const progressW = (w * t.progress) / 100;
         return (
           <g key={t.id} className="bar-group">
@@ -285,7 +281,19 @@ export function GanttChart(props: Props) {
                 style={{ cursor: 'grab' }}
                 onPointerDown={(e) => beginDrag(e, 'move', t.id)}
               />
-            ) : (
+            ) : null}
+            {isMilestone && (
+              <text
+                x={Math.max(x + w + bufferW + 8, x + w / 2 + BAR_HEIGHT / 2 + 6)}
+                y={y + BAR_HEIGHT / 2 + 4}
+                fontSize={BAR_FONT}
+                fill="#334155"
+                pointerEvents="none"
+              >
+                {t.name}
+              </text>
+            )}
+            {isMilestone ? null : (
               <>
                 <rect x={x} y={y} width={w} height={BAR_HEIGHT} rx={5} fill={t.color} fillOpacity={0.35} />
                 <rect x={x} y={y} width={progressW} height={BAR_HEIGHT} rx={5} fill={t.color} />
@@ -308,17 +316,17 @@ export function GanttChart(props: Props) {
                     <clipPath id={`progress-clip-${i}`}>
                       <rect x={x} y={y} width={progressW} height={BAR_HEIGHT} />
                     </clipPath>
-                    <text x={x + 8} y={y + BAR_HEIGHT / 2 + 4} fontSize={12} fill="#1e1b2e" pointerEvents="none">
+                    <text x={labelX} y={y + BAR_HEIGHT / 2 + 4} fontSize={BAR_FONT} fill="#1e1b2e" pointerEvents="none">
                       {t.name}
                     </text>
                     {progressW > 0 && (
-                      <text x={x + 8} y={y + BAR_HEIGHT / 2 + 4} fontSize={12} fontWeight={500} fill="#ffffff" clipPath={`url(#progress-clip-${i})`} pointerEvents="none">
+                      <text x={labelX} y={y + BAR_HEIGHT / 2 + 4} fontSize={BAR_FONT} fontWeight={500} fill="#ffffff" clipPath={`url(#progress-clip-${i})`} pointerEvents="none">
                         {t.name}
                       </text>
                     )}
                   </>
                 ) : (
-                  <text x={x + w + bufferW + 8} y={y + BAR_HEIGHT / 2 + 4} fontSize={12} fill="#334155" pointerEvents="none">
+                  <text x={x + w + bufferW + 8} y={y + BAR_HEIGHT / 2 + 4} fontSize={BAR_FONT} fill="#334155" pointerEvents="none">
                     {t.name}
                   </text>
                 )}
@@ -365,12 +373,22 @@ export function GanttChart(props: Props) {
         );
       })}
 
+      {/* Heute-Linie */}
+      {todayX >= 0 && todayX <= width && (
+        <g>
+          {/* dünne, durchgehende Linie über Kopf und Diagramm */}
+          <line x1={todayX + ppd / 2} x2={todayX + ppd / 2} y1={HEADER_HEIGHT / 2} y2={height} stroke="#ef4444" strokeWidth={1} pointerEvents="none">
+            <title>Heute</title>
+          </line>
+        </g>
+      )}
+
       {drag?.kind === 'link' && (
         <line x1={drag.x1} y1={drag.y1} x2={drag.x} y2={drag.y} stroke="#6022a7" strokeWidth={2} strokeDasharray="5 4" markerEnd="url(#arrow-active)" pointerEvents="none" />
       )}
 
       {tasks.length === 0 && (
-        <text x={24} y={HEADER_HEIGHT + ROW_HEIGHT / 2 + 4} fontSize={13} fill="#94a3b8">
+        <text x={24} y={HEADER_HEIGHT + ROW_HEIGHT / 2 + 4} fontSize={14} fill="#94a3b8">
           Noch keine Aufgaben – lege mit „Neue Aufgabe" die erste an.
         </text>
       )}

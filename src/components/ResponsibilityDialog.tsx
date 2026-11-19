@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Responsibility, Task } from '../types';
+import { useDraggable } from '../lib/useDraggable';
 
 interface Props {
   responsibilities: Responsibility[];
@@ -13,6 +14,7 @@ interface Props {
 /** Zuständigkeiten anlegen, umbenennen, umfärben und löschen. Änderungen gelten sofort. */
 export function ResponsibilityDialog({ responsibilities, tasks, onAdd, onUpdate, onDelete, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const dragger = useDraggable();
   const [newName, setNewName] = useState('');
 
   useEffect(() => {
@@ -30,9 +32,11 @@ export function ResponsibilityDialog({ responsibilities, tasks, onAdd, onUpdate,
   const countOf = (id: string) => tasks.filter((t) => t.responsibility === id).length;
 
   return (
-    <dialog ref={dialogRef} className="task-dialog resp-dialog" onClose={onClose} onCancel={onClose}>
+    <dialog ref={dialogRef} className="task-dialog resp-dialog" style={dragger.style} onClose={onClose} onCancel={onClose}>
       <div className="dialog-body">
-        <h2>Zuständigkeiten</h2>
+        <div {...dragger.handleProps}>
+          <h2>Zuständigkeiten</h2>
+        </div>
         <p className="muted small">Die Farbe gilt für alle Aufgaben mit dieser Zuständigkeit und erscheint so in der Legende.</p>
         <ul className="resp-list">
           {responsibilities.map((r) => (

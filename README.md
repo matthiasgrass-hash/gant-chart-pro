@@ -14,7 +14,8 @@ Alle Daten bleiben lokal im Browser (localStorage), es wird kein Server benötig
 - **Automatische Planung** – wird eine Aufgabe verschoben oder ihre Dauer geändert, wandern alle Nachfolger (über die ganze Kette) automatisch mit, schon während des Ziehens. Verschiebt man eine abhängige Aufgabe selbst, bleibt sie liegen und ihr Versatz passt sich an.
 - **Spalten anpassen** – über „+ Spalte" eigene Textspalten anlegen (z. B. „Verantwortlich"), Spaltennamen per Klick umbenennen, Spalten über ✕ löschen; Start/Ende/Tage lassen sich ausblenden und wieder einblenden. Textzellen per Klick direkt bearbeiten oder im Aufgaben-Dialog.
 - **Fortschritt, Farben, Meilensteine** – Standardfarbe ist GE-Lila (`#6022a7`), andere Farben bei Bedarf im Dialog; eintägige Aufgaben werden in Wochen-/Monatsansicht als Raute dargestellt
-- **Import / Export** – Projekt als JSON speichern und wieder laden (mit Validierung), Diagramm als **PNG** oder **PDF** exportieren (mit GE-Logo, Projektüberschrift und allen Spalten der Aufgabenliste)
+- **Direkt bearbeiten** – Name und Tage (Dauer in Arbeitstagen) per Klick direkt in der Liste ändern, ohne Dialog; Dialoge lassen sich an der Titelzeile verschieben.
+- **Import / Export** – Projekt als JSON speichern und laden (mit Validierung); Diagramm als **PNG** oder **PDF** mit GE-Logo, Projektüberschrift, allen Spalten und optionaler Legende. Der Export wird unabhängig von der Bildschirmansicht neu gezeichnet: Zeitraum **„Alles“** beginnt beim ersten Task und ist so breit, dass alle Balken mit Beschriftung vollständig sichtbar sind; alternativ ein **Datumsbereich von–bis**. Die Seitengröße passt sich automatisch an; PDF mit 1 cm Rand.
 - Tastatur: `Enter` bearbeitet, `Entf` löscht die ausgewählte Aufgabe, `Esc` hebt die Auswahl auf
 
 ### Arbeitstage

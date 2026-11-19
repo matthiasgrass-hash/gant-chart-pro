@@ -3,6 +3,7 @@ import type { Column, Dependency, DependencyType, Responsibility, Task } from '.
 import { TASK_COLORS } from '../lib/colors';
 import { formatDate, isValidIso } from '../lib/date';
 import { workDays } from '../lib/workdays';
+import { useDraggable } from '../lib/useDraggable';
 import { DEPENDENCY_TYPES, initialLag, schedule } from '../lib/schedule';
 import { wouldCreateCycle } from '../lib/graph';
 
@@ -29,6 +30,7 @@ export function TaskDialog({ task, isNew, allTasks, columns, responsibilities, o
   const setColor = (c: string) => (resp ? setRespColors((m) => ({ ...m, [resp.id]: c })) : update('color', c));
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const dragger = useDraggable();
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -73,9 +75,11 @@ export function TaskDialog({ task, isNew, allTasks, columns, responsibilities, o
   };
 
   return (
-    <dialog ref={dialogRef} className="task-dialog" onClose={onClose} onCancel={onClose}>
+    <dialog ref={dialogRef} className="task-dialog" style={dragger.style} onClose={onClose} onCancel={onClose}>
       <form onSubmit={submit}>
-        <h2>{isNew ? 'Neue Aufgabe' : 'Aufgabe bearbeiten'}</h2>
+        <div {...dragger.handleProps}>
+          <h2>{isNew ? 'Neue Aufgabe' : 'Aufgabe bearbeiten'}</h2>
+        </div>
 
         <label className="field">
           <span>Name</span>

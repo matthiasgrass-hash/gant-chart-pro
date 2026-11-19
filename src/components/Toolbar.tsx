@@ -12,8 +12,8 @@ interface Props {
   onExportJson: () => void;
   onExportPng: () => void;
   onExportPdf: () => void;
-  pdfLegend: boolean;
-  onPdfLegendChange: (value: boolean) => void;
+  exportOptions: ExportOptions;
+  onExportOptionsChange: (o: ExportOptions) => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   onLoadSample: () => void;
@@ -78,8 +78,8 @@ export function Toolbar(p: Props) {
           }}
         />
         <button onClick={p.onExportJson}>JSON</button>
-        <button onClick={p.onExportPng}>PNG</button>
-        <PdfMenu legend={p.pdfLegend} onLegendChange={p.onPdfLegendChange} onExport={p.onExportPdf} />
+        <ExportMenu format="PNG" options={p.exportOptions} onChange={p.onExportOptionsChange} onExport={p.onExportPng} />
+        <ExportMenu format="PDF" options={p.exportOptions} onChange={p.onExportOptionsChange} onExport={p.onExportPdf} />
       </div>
       <div className="toolbar-group">
         <button onClick={p.onLoadSample} title="Beispielprojekt laden">Beispiel</button>
@@ -97,8 +97,26 @@ export function Toolbar(p: Props) {
   );
 }
 
-/** PDF-Knopf mit kleinem Menü: Legende ein-/ausschalten, dann exportieren. */
-function PdfMenu({ legend, onLegendChange, onExport }: { legend: boolean; onLegendChange: (v: boolean) => void; onExport: () => void }) {
+export interface ExportOptions {
+  legend: boolean;
+  /** 'all' = alles ab dem ersten Task, 'custom' = Datumsbereich */
+  rangeMode: 'all' | 'custom';
+  from: string;
+  to: string;
+}
+
+/** Export-Knopf mit Menü: Zeitraum (alles / von–bis) und Legende wählen, dann exportieren. */
+function ExportMenu({
+  format,
+  options,
+  onChange,
+  onExport,
+}: {
+  format: 'PDF' | 'PNG';
+  options: ExportOptions;
+  onChange: (o: ExportOptions) => void;
+  onExport: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -114,25 +132,51 @@ function PdfMenu({ legend, onLegendChange, onExport }: { legend: boolean; onLege
       document.removeEventListener('keydown', esc);
     };
   }, [open]);
+  const set = (patch: Partial<ExportOptions>) => onChange({ ...options, ...patch });
+  const invalid = options.rangeMode === 'custom' && (!options.from || !options.to);
   return (
     <div className="pdf-menu" ref={ref}>
       <button aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        PDF ▾
+        {format} ▾
       </button>
       {open && (
-        <div className="menu pdf-menu__panel" role="dialog" aria-label="PDF-Export">
+        <div className="menu pdf-menu__panel" role="dialog" aria-label={`${format}-Export`}>
+          <div className="menu__group" role="radiogroup" aria-label="Zeitraum">
+            <span className="menu__label">Zeitraum</span>
+            <label className="menu__check">
+              <input type="radio" name={`range-${format}`} checked={options.rangeMode === 'all'} onChange={() => set({ rangeMode: 'all' })} />
+              Alles (ab dem ersten Task)
+            </label>
+            <label className="menu__check">
+              <input type="radio" name={`range-${format}`} checked={options.rangeMode === 'custom'} onChange={() => set({ rangeMode: 'custom' })} />
+              Bereich
+            </label>
+            {options.rangeMode === 'custom' && (
+              <div className="menu__range">
+                <label>
+                  von
+                  <input type="date" value={options.from} onChange={(e) => set({ from: e.target.value })} />
+                </label>
+                <label>
+                  bis
+                  <input type="date" value={options.to} min={options.from} onChange={(e) => set({ to: e.target.value })} />
+                </label>
+              </div>
+            )}
+          </div>
           <label className="menu__check">
-            <input type="checkbox" checked={legend} onChange={(e) => onLegendChange(e.target.checked)} />
+            <input type="checkbox" checked={options.legend} onChange={(e) => set({ legend: e.target.checked })} />
             Legende einfügen
           </label>
           <button
             className="primary"
+            disabled={invalid}
             onClick={() => {
               setOpen(false);
               onExport();
             }}
           >
-            PDF erstellen
+            {format} erstellen
           </button>
         </div>
       )}

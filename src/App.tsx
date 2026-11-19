@@ -14,6 +14,9 @@ import { Toolbar } from './components/Toolbar';
 import { TaskList } from './components/TaskList';
 import { GanttChart } from './components/GanttChart';
 import { TaskDialog } from './components/TaskDialog';
+import type { ExportOptions } from './components/Toolbar';
+import { exportTimeline, projectSpan } from './lib/exportRange';
+import { renderChartSvg } from './lib/renderChart';
 import { Legend } from './components/Legend';
 import { ResponsibilityDialog } from './components/ResponsibilityDialog';
 import { NEW_RESPONSIBILITY } from './components/TaskList';
@@ -84,7 +87,12 @@ export default function App() {
   const [editing, setEditing] = useState<{ task: Task; isNew: boolean } | null>(null);
   const [toast, setToast] = useState<{ text: string; kind: 'info' | 'error' } | null>(null);
   const [managingResponsibilities, setManagingResponsibilities] = useState(false);
-  const [pdfLegend, setPdfLegend] = useState<boolean>(() => readPref(PDF_LEGEND_KEY, 'true') === 'true');
+  const [exportOptions, setExportOptions] = useState<ExportOptions>(() => ({
+    legend: readPref(PDF_LEGEND_KEY, 'true') === 'true',
+    rangeMode: 'all',
+    from: '',
+    to: '',
+  }));
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const svgRef = useRef<SVGSVGElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -93,7 +101,7 @@ export default function App() {
   const range = useMemo(() => computeRange(project.tasks, view, today), [project.tasks, view, today]);
 
   useEffect(() => saveProject(project), [project]);
-  useEffect(() => writePref(PDF_LEGEND_KEY, String(pdfLegend)), [pdfLegend]);
+  useEffect(() => writePref(PDF_LEGEND_KEY, String(exportOptions.legend)), [exportOptions.legend]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
@@ -163,10 +171,22 @@ export default function App() {
     setEditing(null);
   };
 
-  const runExport = async (fn: () => Promise<void>) => {
+  /** Export: Diagramm für den gewählten Zeitraum neu zeichnen (unabhängig von der Bildschirmansicht). */
+  const runExport = async (format: 'png' | 'pdf') => {
     try {
-      if (!svgRef.current) return;
-      await fn();
+      const { range: exportRange, tasks } = exportTimeline(displayTasks, view, {
+        mode: exportOptions.rangeMode,
+        from: exportOptions.from,
+        to: exportOptions.to,
+      });
+      if (!tasks.length) {
+        setToast({ text: 'Im gewählten Zeitraum liegen keine Aufgaben.', kind: 'error' });
+        return;
+      }
+      const chart = renderChartSvg(tasks, view, exportRange, today);
+      const exported = { ...project, tasks };
+      const legend = exportOptions.legend ? usedResponsibilities(exported) : null;
+      await (format === 'pdf' ? exportPdf(chart, exported, legend) : exportPng(chart, exported, legend));
     } catch (err) {
       setToast({ text: err instanceof Error ? err.message : 'Export fehlgeschlagen.', kind: 'error' });
     }
@@ -216,10 +236,17 @@ export default function App() {
         onToday={scrollToToday}
         onImport={importFile}
         onExportJson={() => downloadBlob(new Blob([serializeProject(project)], { type: 'application/json' }), `${fileBaseName(project)}.json`)}
-        onExportPng={() => runExport(() => exportPng(svgRef.current!, { ...project, tasks: displayTasks }))}
-        onExportPdf={() => runExport(() => exportPdf(svgRef.current!, { ...project, tasks: displayTasks }, pdfLegend ? legendItems : null))}
-        pdfLegend={pdfLegend}
-        onPdfLegendChange={setPdfLegend}
+        onExportPng={() => runExport('png')}
+        onExportPdf={() => runExport('pdf')}
+        exportOptions={exportOptions}
+        onExportOptionsChange={(o) => {
+          // Beim Umschalten auf „Bereich“ mit dem Projektzeitraum vorbelegen
+          if (o.rangeMode === 'custom' && (!o.from || !o.to)) {
+            const span = projectSpan(project.tasks);
+            if (span) o = { ...o, from: o.from || span.from, to: o.to || span.to };
+          }
+          setExportOptions(o);
+        }}
         theme={theme}
         onToggleTheme={() => {
           const next = theme === 'dark' ? 'light' : 'dark';
@@ -267,6 +294,11 @@ export default function App() {
             if (confirm(msg)) dispatch({ type: 'deleteColumn', id: column.id });
           }}
           onSetField={(taskId, columnId, value) => dispatch({ type: 'setField', taskId, columnId, value })}
+          onRenameTask={(id, name) => dispatch({ type: 'updateTask', id, patch: { name } })}
+          onSetDuration={(id, days) => {
+            const task = project.tasks.find((t) => t.id === id);
+            if (task) dispatch({ type: 'updateTask', id, patch: { end: endAfterWorkdays(task.start, days) } });
+          }}
           onEdit={(task) => editTask(task.id)}
           onMove={(id, direction) => dispatch({ type: 'moveTask', id, direction })}
           onDelete={deleteTask}

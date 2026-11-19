@@ -13,7 +13,7 @@ function layoutLegend(items: Responsibility[], width: number) {
   let x = startX;
   let y = LEGEND_PAD;
   const placed = items.map((r) => {
-    const w = 20 + r.name.length * 7.5 + 28;
+    const w = 20 + r.name.length * 8 + 28;
     if (x + w > width - TABLE_PAD && x > startX) {
       x = startX;
       y += LEGEND_ROW;
@@ -40,7 +40,7 @@ function el<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, 
 
 /** Kürzt Text grob auf die verfügbare Breite (ca. 7 px pro Zeichen bei 12–13 px Schrift). */
 function fit(text: string, width: number): string {
-  const max = Math.max(3, Math.floor(width / 7));
+  const max = Math.max(3, Math.floor(width / 7.8));
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
@@ -86,7 +86,7 @@ export function buildExportSvg(
   for (const { column, x: cx, width: w } of cols) {
     const right = isNumericColumn(column.kind);
     names.appendChild(
-      el('text', { x: right ? cx + w - 4 : cx, y: HEADER_HEIGHT / 2 + 5, 'font-size': 13, 'font-weight': 600, fill: '#334155', 'text-anchor': right ? 'end' : 'start' }, fit(column.label, w)),
+      el('text', { x: right ? cx + w - 4 : cx, y: HEADER_HEIGHT / 2 + 5, 'font-size': 14, 'font-weight': 600, fill: '#334155', 'text-anchor': right ? 'end' : 'start' }, fit(column.label, w)),
     );
   }
   project.tasks.forEach((t, i) => {
@@ -96,17 +96,17 @@ export function buildExportSvg(
     for (const { column, x: cx, width: w } of cols) {
       if (column.kind === 'name') {
         names.appendChild(el('circle', { cx: cx + 5, cy: y + ROW_HEIGHT / 2, r: 5, fill: t.color }));
-        names.appendChild(el('text', { x: cx + 18, y: mid, 'font-size': 13, fill: '#0f172a' }, fit(t.name, w - 18)));
+        names.appendChild(el('text', { x: cx + 18, y: mid, 'font-size': 14, fill: '#0f172a' }, fit(t.name, w - 18)));
       } else if (column.kind === 'responsibility') {
         const r = project.responsibilities.find((x) => x.id === t.responsibility);
         if (r) {
           names.appendChild(el('circle', { cx: cx + 5, cy: y + ROW_HEIGHT / 2, r: 4.5, fill: r.color }));
-          names.appendChild(el('text', { x: cx + 16, y: mid, 'font-size': 12, fill: '#475569' }, fit(r.name, w - 16)));
+          names.appendChild(el('text', { x: cx + 16, y: mid, 'font-size': 13, fill: '#475569' }, fit(r.name, w - 16)));
         }
       } else if (isNumericColumn(column.kind)) {
-        names.appendChild(el('text', { x: cx + w - 4, y: mid, 'font-size': 12, fill: '#475569', 'text-anchor': 'end' }, cellText(t, column, project.responsibilities)));
+        names.appendChild(el('text', { x: cx + w - 4, y: mid, 'font-size': 13, fill: '#475569', 'text-anchor': 'end' }, cellText(t, column, project.responsibilities)));
       } else {
-        names.appendChild(el('text', { x: cx, y: mid, 'font-size': 12, fill: '#475569' }, fit(cellText(t, column, project.responsibilities), w)));
+        names.appendChild(el('text', { x: cx, y: mid, 'font-size': 13, fill: '#475569' }, fit(cellText(t, column, project.responsibilities), w)));
       }
     }
   });
@@ -116,16 +116,24 @@ export function buildExportSvg(
   const clone = chart.cloneNode(true) as SVGSVGElement;
   clone.querySelectorAll('[data-export="exclude"]').forEach((n) => n.remove());
   const chartGroup = el('g', { transform: `translate(${tableWidth} ${title})` });
-  while (clone.firstChild) chartGroup.appendChild(clone.firstChild);
+  // Balken außerhalb des Exportzeitraums abschneiden (nicht in die Tabelle ragen lassen)
+  const clip = el('clipPath', { id: 'export-chart-clip' });
+  clip.appendChild(el('rect', { x: 0, y: 0, width: chartWidth, height: chartHeight }));
+  const defs = el('defs', {});
+  defs.appendChild(clip);
+  svg.appendChild(defs);
+  const clipped = el('g', { 'clip-path': 'url(#export-chart-clip)' });
+  while (clone.firstChild) clipped.appendChild(clone.firstChild);
+  chartGroup.appendChild(clipped);
   svg.appendChild(chartGroup);
   if (legendLayout) {
     // Legende unter dem Diagramm: Zuständigkeiten in ihren Farben
     const g = el('g', { transform: `translate(0 ${title + chartHeight})` });
     g.appendChild(el('line', { x1: 0, x2: width, y1: 0.5, y2: 0.5, stroke: '#cbd5e1' }));
-    g.appendChild(el('text', { x: TABLE_PAD, y: LEGEND_PAD + 14, 'font-size': 13, 'font-weight': 700, fill: '#334155' }, 'Legende'));
+    g.appendChild(el('text', { x: TABLE_PAD, y: LEGEND_PAD + 14, 'font-size': 14, 'font-weight': 700, fill: '#334155' }, 'Legende'));
     for (const item of legendLayout.items) {
       g.appendChild(el('rect', { x: item.x, y: item.y + 2, width: 14, height: 14, rx: 3, fill: item.r.color }));
-      g.appendChild(el('text', { x: item.x + 20, y: item.y + 14, 'font-size': 13, fill: '#0f172a' }, item.r.name));
+      g.appendChild(el('text', { x: item.x + 20, y: item.y + 14, 'font-size': 14, fill: '#0f172a' }, item.r.name));
     }
     svg.appendChild(g);
   }
@@ -207,8 +215,8 @@ async function renderExport(chart: SVGSVGElement, project: Project, maxSize: num
   return { canvas, width, height };
 }
 
-export async function exportPng(chart: SVGSVGElement, project: Project): Promise<void> {
-  const { canvas } = await renderExport(chart, project, 16000);
+export async function exportPng(chart: SVGSVGElement, project: Project, legend: Responsibility[] | null = null): Promise<void> {
+  const { canvas } = await renderExport(chart, project, 16000, legend);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) throw new Error('PNG konnte nicht erzeugt werden.');
   downloadBlob(blob, `${fileBaseName(project)}.png`);

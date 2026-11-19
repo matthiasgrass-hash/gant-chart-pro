@@ -18,6 +18,9 @@ interface Props {
   responsibilities: Responsibility[];
   /** value: ID, '' = keine, NEW_RESPONSIBILITY = neue anlegen */
   onSetResponsibility: (taskId: string, value: string) => void;
+  onRenameTask: (taskId: string, name: string) => void;
+  /** Dauer in Arbeitstagen setzen (Ende verschiebt sich) */
+  onSetDuration: (taskId: string, days: number) => void;
 }
 
 export const NEW_RESPONSIBILITY = '__new__';
@@ -28,7 +31,25 @@ export function listWidth(columns: Column[]): number {
 }
 
 /** Text, der per Klick zum Eingabefeld wird. Enter/Verlassen speichert, Esc bricht ab. */
-function InlineEdit({ value, placeholder, className, onSave, autoEdit = false }: { value: string; placeholder?: string; className?: string; onSave: (v: string) => void; autoEdit?: boolean }) {
+function InlineEdit({
+  value,
+  placeholder,
+  className,
+  onSave,
+  autoEdit = false,
+  numeric = false,
+  onActivate,
+}: {
+  value: string;
+  placeholder?: string;
+  className?: string;
+  onSave: (v: string) => void;
+  autoEdit?: boolean;
+  /** Zahleneingabe (ganze Zahlen ≥ 1) */
+  numeric?: boolean;
+  /** wird beim Start der Bearbeitung aufgerufen, z. B. um die Zeile auszuwählen */
+  onActivate?: () => void;
+}) {
   const [editing, setEditing] = useState(autoEdit);
   const [draft, setDraft] = useState(value);
   const ref = useRef<HTMLInputElement>(null);
@@ -44,6 +65,7 @@ function InlineEdit({ value, placeholder, className, onSave, autoEdit = false }:
         title={value ? `${value} – klicken zum Bearbeiten` : 'Klicken zum Bearbeiten'}
         onClick={(e) => {
           e.stopPropagation();
+          onActivate?.();
           setDraft(value);
           setEditing(true);
         }}
@@ -65,7 +87,8 @@ function InlineEdit({ value, placeholder, className, onSave, autoEdit = false }:
   return (
     <input
       ref={ref}
-      className="inline-input"
+      className={`inline-input${numeric ? ' inline-input--num' : ''}`}
+      {...(numeric ? { type: 'number', min: 1, step: 1, inputMode: 'numeric' as const } : {})}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
@@ -150,9 +173,14 @@ export function TaskList(p: Props) {
         >
           {columns.map((c) =>
             c.kind === 'name' ? (
-              <span key={c.id} role="cell" className="task-name" title={t.name}>
+              <span key={c.id} role="cell" className="task-name">
                 <i className="swatch" style={{ background: t.color }} />
-                <span className="ellipsis">{t.name}</span>
+                <InlineEdit
+                  className="task-name__edit"
+                  value={t.name}
+                  onActivate={() => p.onSelect(t.id)}
+                  onSave={(v) => v.trim() && p.onRenameTask(t.id, v.trim())}
+                />
                 {t.progress === 100 && <span className="done" aria-label="erledigt">✓</span>}
               </span>
             ) : c.kind === 'responsibility' ? (
@@ -179,7 +207,20 @@ export function TaskList(p: Props) {
               </span>
             ) : (
               <span key={c.id} role="cell" className={isNumericColumn(c.kind) ? 'num' : undefined}>
-                {cellText(t, c)}
+                {c.kind === 'duration' ? (
+                  <InlineEdit
+                    className="num-edit"
+                    numeric
+                    value={cellText(t, c)}
+                    onActivate={() => p.onSelect(t.id)}
+                    onSave={(v) => {
+                      const n = Math.round(Number(v));
+                      if (Number.isFinite(n) && n >= 1) p.onSetDuration(t.id, n);
+                    }}
+                  />
+                ) : (
+                  cellText(t, c)
+                )}
               </span>
             ),
           )}
