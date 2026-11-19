@@ -9,7 +9,12 @@ interface Props {
   onAddTask: () => void;
   onToday: () => void;
   onImport: (file: File) => void;
-  onExportJson: () => void;
+  /** Öffnen per System-Dialog (falls unterstützt), sonst Datei-Auswahl */
+  onOpen?: () => void;
+  onSave: () => void;
+  onSaveAs: () => void;
+  fileName: string | null;
+  unsaved: boolean;
   onExportPng: () => void;
   onExportPdf: () => void;
   exportOptions: ExportOptions;
@@ -65,7 +70,7 @@ export function Toolbar(p: Props) {
       <span className="spacer" />
 
       <div className="toolbar-group">
-        <button onClick={() => fileRef.current?.click()}>Import</button>
+        <button onClick={() => (p.onOpen ? p.onOpen() : fileRef.current?.click())} title="Projektdatei (JSON) öffnen">Öffnen</button>
         <input
           ref={fileRef}
           type="file"
@@ -77,7 +82,16 @@ export function Toolbar(p: Props) {
             e.target.value = '';
           }}
         />
-        <button onClick={p.onExportJson}>JSON</button>
+        <button
+          className={`save-btn${p.unsaved ? ' is-dirty' : ''}`}
+          onClick={p.onSave}
+          title={p.fileName ? `In „${p.fileName}“ speichern (Strg+S)` : 'Speichern – beim ersten Mal Speicherort wählen (Strg+S)'}
+        >
+          Speichern{p.unsaved && <span className="dirty-dot" aria-label="ungespeicherte Änderungen"> ●</span>}
+        </button>
+        <button onClick={p.onSaveAs} title="Speicherort und Dateinamen neu wählen (Strg+Umschalt+S)">
+          Speichern unter…
+        </button>
         <ExportMenu format="PNG" options={p.exportOptions} onChange={p.onExportOptionsChange} onExport={p.onExportPng} />
         <ExportMenu format="PDF" options={p.exportOptions} onChange={p.onExportOptionsChange} onExport={p.onExportPdf} />
       </div>

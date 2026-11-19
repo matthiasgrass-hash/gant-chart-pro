@@ -436,3 +436,8 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
 :root[data-theme='dark'] .gantt-svg line[stroke='#6022a7'] { stroke: #b48af0; }
 :root[data-theme='dark'] .gantt-svg marker path[fill='#6022a7'] { fill: #b48af0; }
 :root[data-theme='dark'] .gantt-svg .link-handle { fill: #151820; }
+
+/* Speichern */
+.save-btn { font-weight: 600; }
+.save-btn.is-dirty { border-color: var(--primary); color: var(--primary); }
+.dirty-dot { font-size: 0.8em; }

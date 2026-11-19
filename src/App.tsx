@@ -5,6 +5,7 @@ import { loadProject, saveProject } from './lib/storage';
 import { DEFAULT_PROJECT_NAME, createSampleProject } from './lib/sample';
 import { addDays, toDayNumber, todayIso } from './lib/date';
 import { createId } from './lib/id';
+import { ensureWritePermission, fileSaveSupported, isAbort, pickOpenFile, pickSaveFile, recallHandle, rememberHandle, writeFile, type FileHandle } from './lib/fileSave';
 import { endAfterWorkdays, nextWorkday } from './lib/workdays';
 import { GE_COLOR } from './lib/colors';
 import { parseProject, serializeProject } from './lib/serialize';
@@ -25,6 +26,7 @@ import { nextResponsibilityColor, usedResponsibilities, withEffectiveColors } fr
 const VIEW_KEY = 'gant-chart-pro:view';
 const PDF_LEGEND_KEY = 'gant-chart-pro:pdf-legend';
 const THEME_KEY = 'gant-chart-pro:theme';
+const SAVED_SNAPSHOT_KEY = 'gant-chart-pro:saved-snapshot';
 
 type Theme = 'light' | 'dark';
 
@@ -94,6 +96,14 @@ export default function App() {
     to: '',
   }));
   const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [fileHandle, setFileHandle] = useState<FileHandle | null>(null);
+  /** Stand der Datei beim letzten Speichern/Öffnen – zum Erkennen ungespeicherter Änderungen */
+  const [savedText, setSavedTextState] = useState<string | null>(() => readPref(SAVED_SNAPSHOT_KEY, '') || null);
+  const setSavedText = (text: string) => {
+    setSavedTextState(text);
+    writePref(SAVED_SNAPSHOT_KEY, text);
+  };
+  const markCleanAfterLoad = useRef(false);
   const svgRef = useRef<SVGSVGElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -101,6 +111,18 @@ export default function App() {
   const range = useMemo(() => computeRange(project.tasks, view, today), [project.tasks, view, today]);
 
   useEffect(() => saveProject(project), [project]);
+  // Zuletzt verwendete Datei nach dem Neuladen wiederfinden
+  useEffect(() => {
+    if (fileSaveSupported()) void recallHandle().then((h) => h && setFileHandle(h));
+  }, []);
+  const currentText = useMemo(() => serializeProject(project), [project]);
+  useEffect(() => {
+    if (markCleanAfterLoad.current) {
+      markCleanAfterLoad.current = false;
+      setSavedText(currentText);
+    }
+  }, [currentText]);
+  const unsaved = savedText !== currentText;
   useEffect(() => writePref(PDF_LEGEND_KEY, String(exportOptions.legend)), [exportOptions.legend]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -192,16 +214,72 @@ export default function App() {
     }
   };
 
-  const importFile = async (file: File) => {
+  const importFile = async (file: File, handle: FileHandle | null = null) => {
     try {
       const imported = parseProject(await file.text());
       dispatch({ type: 'load', project: imported });
       setSelectedId(null);
-      setToast({ text: `„${imported.name}" importiert (${imported.tasks.length} Aufgaben).`, kind: 'info' });
+      // Die geöffnete Datei wird zur Speicherdatei: „Speichern“ überschreibt sie
+      setFileHandle(handle);
+      void rememberHandle(handle);
+      markCleanAfterLoad.current = true;
+      setToast({ text: `„${imported.name}" geöffnet (${imported.tasks.length} Aufgaben).`, kind: 'info' });
     } catch (err) {
       setToast({ text: err instanceof Error ? err.message : 'Import fehlgeschlagen.', kind: 'error' });
     }
   };
+
+  /** Öffnen über den System-Dialog (merkt sich die Datei fürs Speichern). */
+  const openWithPicker = async () => {
+    try {
+      const handle = await pickOpenFile();
+      await importFile(await handle.getFile(), handle);
+    } catch (err) {
+      if (!isAbort(err)) setToast({ text: 'Datei konnte nicht geöffnet werden.', kind: 'error' });
+    }
+  };
+
+  /**
+   * Speichern: beim ersten Mal (oder mit `saveAs`) Ordner und Dateinamen im System-Dialog wählen,
+   * danach wird genau diese Datei ohne Nachfrage überschrieben.
+   */
+  const saveToFile = async (saveAs = false) => {
+    const text = serializeProject(project);
+    if (!fileSaveSupported()) {
+      downloadBlob(new Blob([text], { type: 'application/json' }), `${fileBaseName(project)}.json`);
+      setSavedText(text);
+      setToast({ text: 'Als Download gespeichert. Direktes Überschreiben geht nur in Chrome oder Edge am Computer.', kind: 'info' });
+      return;
+    }
+    try {
+      let handle = saveAs ? null : fileHandle;
+      if (handle && !(await ensureWritePermission(handle))) handle = null;
+      if (!handle) {
+        handle = await pickSaveFile(fileHandle?.name ?? `${fileBaseName(project)}.json`);
+        setFileHandle(handle);
+        void rememberHandle(handle);
+      }
+      await writeFile(handle, text);
+      setSavedText(text);
+      setToast({ text: `Gespeichert in „${handle.name}“.`, kind: 'info' });
+    } catch (err) {
+      if (!isAbort(err)) setToast({ text: `Speichern fehlgeschlagen: ${err instanceof Error ? err.message : err}`, kind: 'error' });
+    }
+  };
+  const saveRef = useRef(saveToFile);
+  saveRef.current = saveToFile;
+
+  // Strg+S / Cmd+S speichert (auch wenn gerade ein Feld bearbeitet wird)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        void saveRef.current(e.shiftKey);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Tastatur: Entf löscht, Enter bearbeitet die ausgewählte Aufgabe
   useEffect(() => {
@@ -234,8 +312,12 @@ export default function App() {
         onViewChange={setView}
         onAddTask={() => setEditing({ task: newTask(), isNew: true })}
         onToday={scrollToToday}
-        onImport={importFile}
-        onExportJson={() => downloadBlob(new Blob([serializeProject(project)], { type: 'application/json' }), `${fileBaseName(project)}.json`)}
+        onImport={(file) => importFile(file)}
+        onOpen={fileSaveSupported() ? openWithPicker : undefined}
+        onSave={() => saveToFile(false)}
+        onSaveAs={() => saveToFile(true)}
+        fileName={fileHandle?.name ?? null}
+        unsaved={unsaved}
         onExportPng={() => runExport('png')}
         onExportPdf={() => runExport('pdf')}
         exportOptions={exportOptions}
@@ -331,7 +413,9 @@ export default function App() {
       />
 
       <footer className="statusbar">
-        <span>{project.tasks.length} Aufgaben · Tage = Arbeitstage (Mo–Fr ohne bundesweite Feiertage)</span>
+        <span>
+          {fileHandle ? `Datei: ${fileHandle.name}${unsaved ? ' · ungespeicherte Änderungen' : ' · gespeichert'}` : 'Noch nicht als Datei gespeichert'} · {project.tasks.length} Aufgaben · Tage = Arbeitstage (Mo–Fr ohne bundesweite Feiertage)
+        </span>
         <span className="muted">Balken ziehen = verschieben · Ränder ziehen = Dauer ändern · Punkt rechts ziehen = Abhängigkeit · Pfeil klicken = Abhängigkeit bearbeiten · Doppelklick = bearbeiten</span>
       </footer>
 
