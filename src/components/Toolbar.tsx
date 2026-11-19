@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ViewMode } from '../types';
 
 interface Props {
@@ -12,6 +12,10 @@ interface Props {
   onExportJson: () => void;
   onExportPng: () => void;
   onExportPdf: () => void;
+  pdfLegend: boolean;
+  onPdfLegendChange: (value: boolean) => void;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
   onLoadSample: () => void;
   onClear: () => void;
 }
@@ -75,12 +79,63 @@ export function Toolbar(p: Props) {
         />
         <button onClick={p.onExportJson}>JSON</button>
         <button onClick={p.onExportPng}>PNG</button>
-        <button onClick={p.onExportPdf}>PDF</button>
+        <PdfMenu legend={p.pdfLegend} onLegendChange={p.onPdfLegendChange} onExport={p.onExportPdf} />
       </div>
       <div className="toolbar-group">
         <button onClick={p.onLoadSample} title="Beispielprojekt laden">Beispiel</button>
         <button className="danger" onClick={p.onClear} title="Alle Aufgaben löschen">Leeren</button>
       </div>
+      <button
+        className="theme-toggle"
+        onClick={p.onToggleTheme}
+        aria-label={p.theme === 'dark' ? 'Helles Design einschalten' : 'Dunkles Design einschalten'}
+        title={p.theme === 'dark' ? 'Helles Design' : 'Dunkles Design'}
+      >
+        {p.theme === 'dark' ? '☀' : '☾'}
+      </button>
     </header>
+  );
+}
+
+/** PDF-Knopf mit kleinem Menü: Legende ein-/ausschalten, dann exportieren. */
+function PdfMenu({ legend, onLegendChange, onExport }: { legend: boolean; onLegendChange: (v: boolean) => void; onExport: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [open]);
+  return (
+    <div className="pdf-menu" ref={ref}>
+      <button aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        PDF ▾
+      </button>
+      {open && (
+        <div className="menu pdf-menu__panel" role="dialog" aria-label="PDF-Export">
+          <label className="menu__check">
+            <input type="checkbox" checked={legend} onChange={(e) => onLegendChange(e.target.checked)} />
+            Legende einfügen
+          </label>
+          <button
+            className="primary"
+            onClick={() => {
+              setOpen(false);
+              onExport();
+            }}
+          >
+            PDF erstellen
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

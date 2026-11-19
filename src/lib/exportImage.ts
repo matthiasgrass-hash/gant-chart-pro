@@ -1,9 +1,29 @@
-import type { Project } from '../types';
+import type { Project, Responsibility } from '../types';
 import { COLUMN_WIDTH, cellText, isNumericColumn } from './columns';
 import { HEADER_HEIGHT, ROW_HEIGHT } from './timeline';
 
 const TABLE_PAD = 16;
 const PDF_MARGIN = 38;
+const LEGEND_PAD = 14;
+const LEGEND_ROW = 24;
+
+/** Legenden-Einträge nebeneinander anordnen, bei Bedarf in mehreren Zeilen. */
+function layoutLegend(items: Responsibility[], width: number) {
+  const startX = TABLE_PAD + 80;
+  let x = startX;
+  let y = LEGEND_PAD;
+  const placed = items.map((r) => {
+    const w = 20 + r.name.length * 7.5 + 28;
+    if (x + w > width - TABLE_PAD && x > startX) {
+      x = startX;
+      y += LEGEND_ROW;
+    }
+    const item = { r, x, y };
+    x += w;
+    return item;
+  });
+  return { items: placed, height: y + LEGEND_ROW + LEGEND_PAD };
+}
 const COL_GAP = 12;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const BRAND = '#6022a7';
@@ -27,13 +47,19 @@ function fit(text: string, width: number): string {
 /** Baut ein eigenständiges SVG aus Aufgabenspalte + Diagramm für den Export. */
 interface Rect { x: number; y: number; width: number; height: number }
 
-export function buildExportSvg(chart: SVGSVGElement, project: Project, withLogo = false): { svg: SVGSVGElement; width: number; height: number; logoRect: Rect | null } {
+export function buildExportSvg(
+  chart: SVGSVGElement,
+  project: Project,
+  withLogo = false,
+  legend: Responsibility[] | null = null,
+): { svg: SVGSVGElement; width: number; height: number; logoRect: Rect | null } {
   const chartWidth = Number(chart.getAttribute('width'));
   const chartHeight = Number(chart.getAttribute('height'));
   const title = 84;
   const tableWidth = project.columns.reduce((sum, c) => sum + COLUMN_WIDTH[c.kind] + COL_GAP, 0) + TABLE_PAD * 2 - COL_GAP;
   const width = tableWidth + chartWidth;
-  const height = title + chartHeight;
+  const legendLayout = legend && legend.length ? layoutLegend(legend, width) : null;
+  const height = title + chartHeight + (legendLayout ? legendLayout.height : 0);
 
   const svg = el('svg', { xmlns: SVG_NS, width, height, viewBox: `0 0 ${width} ${height}`, 'font-family': FONT });
   svg.appendChild(el('rect', { x: 0, y: 0, width, height, fill: '#ffffff' }));
@@ -71,10 +97,16 @@ export function buildExportSvg(chart: SVGSVGElement, project: Project, withLogo 
       if (column.kind === 'name') {
         names.appendChild(el('circle', { cx: cx + 5, cy: y + ROW_HEIGHT / 2, r: 5, fill: t.color }));
         names.appendChild(el('text', { x: cx + 18, y: mid, 'font-size': 13, fill: '#0f172a' }, fit(t.name, w - 18)));
+      } else if (column.kind === 'responsibility') {
+        const r = project.responsibilities.find((x) => x.id === t.responsibility);
+        if (r) {
+          names.appendChild(el('circle', { cx: cx + 5, cy: y + ROW_HEIGHT / 2, r: 4.5, fill: r.color }));
+          names.appendChild(el('text', { x: cx + 16, y: mid, 'font-size': 12, fill: '#475569' }, fit(r.name, w - 16)));
+        }
       } else if (isNumericColumn(column.kind)) {
-        names.appendChild(el('text', { x: cx + w - 4, y: mid, 'font-size': 12, fill: '#475569', 'text-anchor': 'end' }, cellText(t, column)));
+        names.appendChild(el('text', { x: cx + w - 4, y: mid, 'font-size': 12, fill: '#475569', 'text-anchor': 'end' }, cellText(t, column, project.responsibilities)));
       } else {
-        names.appendChild(el('text', { x: cx, y: mid, 'font-size': 12, fill: '#475569' }, fit(cellText(t, column), w)));
+        names.appendChild(el('text', { x: cx, y: mid, 'font-size': 12, fill: '#475569' }, fit(cellText(t, column, project.responsibilities), w)));
       }
     }
   });
@@ -86,6 +118,17 @@ export function buildExportSvg(chart: SVGSVGElement, project: Project, withLogo 
   const chartGroup = el('g', { transform: `translate(${tableWidth} ${title})` });
   while (clone.firstChild) chartGroup.appendChild(clone.firstChild);
   svg.appendChild(chartGroup);
+  if (legendLayout) {
+    // Legende unter dem Diagramm: Zuständigkeiten in ihren Farben
+    const g = el('g', { transform: `translate(0 ${title + chartHeight})` });
+    g.appendChild(el('line', { x1: 0, x2: width, y1: 0.5, y2: 0.5, stroke: '#cbd5e1' }));
+    g.appendChild(el('text', { x: TABLE_PAD, y: LEGEND_PAD + 14, 'font-size': 13, 'font-weight': 700, fill: '#334155' }, 'Legende'));
+    for (const item of legendLayout.items) {
+      g.appendChild(el('rect', { x: item.x, y: item.y + 2, width: 14, height: 14, rx: 3, fill: item.r.color }));
+      g.appendChild(el('text', { x: item.x + 20, y: item.y + 14, 'font-size': 13, fill: '#0f172a' }, item.r.name));
+    }
+    svg.appendChild(g);
+  }
   return { svg, width, height, logoRect };
 }
 
@@ -155,9 +198,9 @@ async function loadLogo(): Promise<HTMLImageElement | null> {
   }
 }
 
-async function renderExport(chart: SVGSVGElement, project: Project, maxSize: number) {
+async function renderExport(chart: SVGSVGElement, project: Project, maxSize: number, legend: Responsibility[] | null = null) {
   const logo = await loadLogo();
-  const { svg, width, height, logoRect } = buildExportSvg(chart, project, Boolean(logo));
+  const { svg, width, height, logoRect } = buildExportSvg(chart, project, Boolean(logo), legend);
   // Browser begrenzen Canvas-Größen; bei sehr breiten Diagrammen Auflösung reduzieren.
   const scale = Math.min(2, maxSize / width, maxSize / height);
   const canvas = await svgToCanvas(svg, width, height, scale, logo && logoRect ? { image: logo, rect: logoRect } : null);
@@ -171,8 +214,9 @@ export async function exportPng(chart: SVGSVGElement, project: Project): Promise
   downloadBlob(blob, `${fileBaseName(project)}.png`);
 }
 
-export async function exportPdf(chart: SVGSVGElement, project: Project): Promise<void> {
-  const { canvas, width, height } = await renderExport(chart, project, 14000);
+/** PDF-Export, immer im hellen Design; `legend` = Zuständigkeiten für die Legende oder null für ohne. */
+export async function exportPdf(chart: SVGSVGElement, project: Project, legend: Responsibility[] | null = null): Promise<void> {
+  const { canvas, width, height } = await renderExport(chart, project, 14000, legend);
   const { jsPDF } = await import('jspdf');
   // Seitenrand ringsum (1 cm bei 96 dpi ≈ 38 px); die Seite wächst entsprechend mit
   const m = PDF_MARGIN;

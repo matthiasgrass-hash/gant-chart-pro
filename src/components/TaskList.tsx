@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import type { Column, Task } from '../types';
+import type { Column, Responsibility, Task } from '../types';
 import { ACTIONS_WIDTH, COLUMN_WIDTH, cellText, isNumericColumn, missingBuiltins } from '../lib/columns';
 import { HEADER_HEIGHT, ROW_HEIGHT } from '../lib/timeline';
 
@@ -15,7 +15,12 @@ interface Props {
   onRenameColumn: (id: string, label: string) => void;
   onDeleteColumn: (column: Column) => void;
   onSetField: (taskId: string, columnId: string, value: string) => void;
+  responsibilities: Responsibility[];
+  /** value: ID, '' = keine, NEW_RESPONSIBILITY = neue anlegen */
+  onSetResponsibility: (taskId: string, value: string) => void;
 }
+
+export const NEW_RESPONSIBILITY = '__new__';
 
 export function listWidth(columns: Column[]): number {
   // Spaltenbreiten + Aktionsspalte + Grid-Abstände (6px) + Innenabstand links/rechts
@@ -149,6 +154,24 @@ export function TaskList(p: Props) {
                 <i className="swatch" style={{ background: t.color }} />
                 <span className="ellipsis">{t.name}</span>
                 {t.progress === 100 && <span className="done" aria-label="erledigt">✓</span>}
+              </span>
+            ) : c.kind === 'responsibility' ? (
+              <span key={c.id} role="cell" className="resp-cell" onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+                <i className="swatch" style={{ background: p.responsibilities.find((r) => r.id === t.responsibility)?.color ?? 'transparent' }} />
+                <select
+                  className="resp-select"
+                  value={t.responsibility ?? ''}
+                  onChange={(e) => p.onSetResponsibility(t.id, e.target.value)}
+                  aria-label={`Zuständigkeit für ${t.name}`}
+                >
+                  <option value="">–</option>
+                  {p.responsibilities.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                  <option value={NEW_RESPONSIBILITY}>+ Neue Zuständigkeit…</option>
+                </select>
               </span>
             ) : c.kind === 'text' ? (
               <span key={c.id} role="cell" className="text-cell">

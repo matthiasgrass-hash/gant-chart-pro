@@ -14,8 +14,39 @@ import { Toolbar } from './components/Toolbar';
 import { TaskList } from './components/TaskList';
 import { GanttChart } from './components/GanttChart';
 import { TaskDialog } from './components/TaskDialog';
+import { Legend } from './components/Legend';
+import { ResponsibilityDialog } from './components/ResponsibilityDialog';
+import { NEW_RESPONSIBILITY } from './components/TaskList';
+import { nextResponsibilityColor, usedResponsibilities, withEffectiveColors } from './lib/responsibilities';
 
 const VIEW_KEY = 'gant-chart-pro:view';
+const PDF_LEGEND_KEY = 'gant-chart-pro:pdf-legend';
+const THEME_KEY = 'gant-chart-pro:theme';
+
+type Theme = 'light' | 'dark';
+
+function readPref(key: string, fallback: string): string {
+  try {
+    return localStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writePref(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Gespeicherte Wahl, sonst die Systemeinstellung. */
+function initialTheme(): Theme {
+  const saved = readPref(THEME_KEY, '');
+  if (saved === 'light' || saved === 'dark') return saved;
+  return typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
 const GE_COLOR_MIGRATION_KEY = 'gant-chart-pro:ge-color-v1';
 
 /** Einmalig alle vorhandenen Aufgaben auf die GE-Farbe setzen. */
@@ -52,6 +83,9 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ task: Task; isNew: boolean } | null>(null);
   const [toast, setToast] = useState<{ text: string; kind: 'info' | 'error' } | null>(null);
+  const [managingResponsibilities, setManagingResponsibilities] = useState(false);
+  const [pdfLegend, setPdfLegend] = useState<boolean>(() => readPref(PDF_LEGEND_KEY, 'true') === 'true');
+  const [theme, setTheme] = useState<Theme>(initialTheme);
   const svgRef = useRef<SVGSVGElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -59,6 +93,28 @@ export default function App() {
   const range = useMemo(() => computeRange(project.tasks, view, today), [project.tasks, view, today]);
 
   useEffect(() => saveProject(project), [project]);
+  useEffect(() => writePref(PDF_LEGEND_KEY, String(pdfLegend)), [pdfLegend]);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  // Anzeige: Aufgaben in der Farbe ihrer Zuständigkeit
+  const displayTasks = useMemo(() => withEffectiveColors(project), [project]);
+  const legendItems = useMemo(() => usedResponsibilities(project), [project]);
+  const editTask = (id: string) => {
+    const task = project.tasks.find((t) => t.id === id);
+    if (task) setEditing({ task, isNew: false });
+  };
+
+  /** Zuständigkeit anlegen (oder vorhandene gleichen Namens verwenden) und ihre ID liefern. */
+  const createResponsibility = (name: string, assignTo?: string): string | null => {
+    const clean = name.trim();
+    if (!clean) return null;
+    const existing = project.responsibilities.find((r) => r.name.toLowerCase() === clean.toLowerCase());
+    const id = existing?.id ?? createId();
+    dispatch({ type: 'addResponsibility', responsibility: { id, name: clean, color: nextResponsibilityColor(project.responsibilities) }, assignTo });
+    return id;
+  };
   useEffect(() => {
     try {
       localStorage.setItem(VIEW_KEY, view);
@@ -160,8 +216,16 @@ export default function App() {
         onToday={scrollToToday}
         onImport={importFile}
         onExportJson={() => downloadBlob(new Blob([serializeProject(project)], { type: 'application/json' }), `${fileBaseName(project)}.json`)}
-        onExportPng={() => runExport(() => exportPng(svgRef.current!, project))}
-        onExportPdf={() => runExport(() => exportPdf(svgRef.current!, project))}
+        onExportPng={() => runExport(() => exportPng(svgRef.current!, { ...project, tasks: displayTasks }))}
+        onExportPdf={() => runExport(() => exportPdf(svgRef.current!, { ...project, tasks: displayTasks }, pdfLegend ? legendItems : null))}
+        pdfLegend={pdfLegend}
+        onPdfLegendChange={setPdfLegend}
+        theme={theme}
+        onToggleTheme={() => {
+          const next = theme === 'dark' ? 'light' : 'dark';
+          writePref(THEME_KEY, next); // nur eine bewusste Wahl speichern, sonst gilt die Systemeinstellung
+          setTheme(next);
+        }}
         onLoadSample={() => {
           if (project.tasks.length && !confirm('Aktuelles Projekt durch das Beispielprojekt ersetzen?')) return;
           dispatch({ type: 'load', project: createSampleProject() });
@@ -176,7 +240,16 @@ export default function App() {
 
       <main className="gantt" ref={scrollRef}>
         <TaskList
-          tasks={project.tasks}
+          tasks={displayTasks}
+          responsibilities={project.responsibilities}
+          onSetResponsibility={(taskId, value) => {
+            if (value === NEW_RESPONSIBILITY) {
+              const name = prompt('Name der neuen Zuständigkeit:');
+              if (name) createResponsibility(name, taskId);
+              return;
+            }
+            dispatch({ type: 'updateTask', id: taskId, patch: { responsibility: value || undefined } });
+          }}
           columns={project.columns}
           selectedId={selectedId}
           onSelect={setSelectedId}
@@ -194,19 +267,19 @@ export default function App() {
             if (confirm(msg)) dispatch({ type: 'deleteColumn', id: column.id });
           }}
           onSetField={(taskId, columnId, value) => dispatch({ type: 'setField', taskId, columnId, value })}
-          onEdit={(task) => setEditing({ task, isNew: false })}
+          onEdit={(task) => editTask(task.id)}
           onMove={(id, direction) => dispatch({ type: 'moveTask', id, direction })}
           onDelete={deleteTask}
         />
         <GanttChart
-          tasks={project.tasks}
+          tasks={displayTasks}
           view={view}
           range={range}
           today={today}
           selectedId={selectedId}
           svgRef={svgRef}
           onSelect={setSelectedId}
-          onEdit={(task) => setEditing({ task, isNew: false })}
+          onEdit={(task) => editTask(task.id)}
           onChangeDates={(id, start, end) => dispatch({ type: 'updateTask', id, patch: { start, end } })}
           onAddDependency={(taskId, predecessorId) => {
             const before = project.tasks.find((t) => t.id === taskId)?.dependencies.length;
@@ -219,6 +292,12 @@ export default function App() {
         />
       </main>
 
+      <Legend
+        responsibilities={legendItems}
+        onColorChange={(id, color) => dispatch({ type: 'updateResponsibility', id, patch: { color } })}
+        onManage={() => setManagingResponsibilities(true)}
+      />
+
       <footer className="statusbar">
         <span>{project.tasks.length} Aufgaben · Tage = Arbeitstage (Mo–Fr ohne bundesweite Feiertage)</span>
         <span className="muted">Balken ziehen = verschieben · Ränder ziehen = Dauer ändern · Punkt rechts ziehen = Abhängigkeit · Pfeil klicken = Abhängigkeit bearbeiten · Doppelklick = bearbeiten</span>
@@ -229,16 +308,34 @@ export default function App() {
           key={editing.task.id}
           task={editing.task}
           isNew={editing.isNew}
-          allTasks={project.tasks}
+          allTasks={displayTasks}
           columns={project.columns}
+          responsibilities={project.responsibilities}
+          onCreateResponsibility={(name) => createResponsibility(name)}
           onClose={() => setEditing(null)}
           onDelete={deleteTask}
-          onSave={(task) => {
+          onSave={(task, respColor) => {
+            if (respColor) dispatch({ type: 'updateResponsibility', id: respColor.id, patch: { color: respColor.color } });
             if (editing.isNew) dispatch({ type: 'addTask', task });
             else dispatch({ type: 'updateTask', id: task.id, patch: task });
             setSelectedId(task.id);
             setEditing(null);
           }}
+        />
+      )}
+
+      {managingResponsibilities && (
+        <ResponsibilityDialog
+          responsibilities={project.responsibilities}
+          tasks={project.tasks}
+          onAdd={(name) => createResponsibility(name)}
+          onUpdate={(id, patch) => dispatch({ type: 'updateResponsibility', id, patch })}
+          onDelete={(r) => {
+            const n = project.tasks.filter((t) => t.responsibility === r.id).length;
+            if (n && !confirm(`„${r.name}“ ist ${n === 1 ? '1 Aufgabe' : `${n} Aufgaben`} zugeordnet. Trotzdem löschen? Die Aufgaben behalten dann ihre eigene Farbe.`)) return;
+            dispatch({ type: 'deleteResponsibility', id: r.id });
+          }}
+          onClose={() => setManagingResponsibilities(false)}
         />
       )}
 

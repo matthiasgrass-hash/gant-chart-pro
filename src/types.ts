@@ -28,12 +28,14 @@ export interface Task {
   buffer?: number;
   /** Vorgänger dieser Aufgabe */
   dependencies: Dependency[];
+  /** ID der Zuständigkeit (Gewerk); bestimmt die Balkenfarbe */
+  responsibility?: string;
   /** Werte der eigenen Textspalten, Schlüssel = Spalten-ID */
   fields?: Record<string, string>;
 }
 
 /** name/start/end/duration sind eingebaute Spalten, text sind frei angelegte. */
-export type ColumnKind = 'name' | 'start' | 'end' | 'duration' | 'buffer' | 'text';
+export type ColumnKind = 'name' | 'start' | 'end' | 'duration' | 'responsibility' | 'buffer' | 'text';
 
 export interface Column {
   id: string;
@@ -47,5 +49,13 @@ export interface Project {
   calendar: 'workdays';
   name: string;
   columns: Column[];
+  /** Zuständigkeiten (Gewerke) mit ihrer Farbe – erscheinen in der Legende */
+  responsibilities: Responsibility[];
   tasks: Task[];
+}
+
+export interface Responsibility {
+  id: string;
+  name: string;
+  color: string;
 }

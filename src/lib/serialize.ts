@@ -1,4 +1,5 @@
-import type { Column, ColumnKind, Dependency, DependencyType, Project, Task } from '../types';
+import type { Column, ColumnKind, Dependency, DependencyType, Project, Responsibility, Task } from '../types';
+import { defaultResponsibilities } from './responsibilities';
 import { isValidIso } from './date';
 import { GE_COLOR } from './colors';
 import { alignLags } from './schedule';
@@ -44,6 +45,7 @@ export function parseProject(text: string): Project {
       color: typeof t.color === 'string' && HEX_RE.test(t.color) ? t.color : GE_COLOR,
       dependencies: parseDependencies(t.dependencies, legacy, t.id),
       fields: parseFields(t.fields),
+      ...(typeof t.responsibility === 'string' && t.responsibility ? { responsibility: t.responsibility } : {}),
       ...(typeof t.buffer === 'number' && Number.isFinite(t.buffer) && t.buffer >= 1 ? { buffer: Math.round(t.buffer) } : {}),
     };
   });
@@ -69,6 +71,14 @@ export function parseProject(text: string): Project {
     task.dependencies = clean;
   }
   const columns = parseColumns((obj as { columns?: unknown }).columns);
+  // Zuständigkeiten: ältere Dateien bekommen die Standardliste und die Spalte „Zuständigkeit"
+  const rawResp = (obj as { responsibilities?: unknown }).responsibilities;
+  const responsibilities = Array.isArray(rawResp) ? parseResponsibilities(rawResp) : defaultResponsibilities();
+  if (!Array.isArray(rawResp) && !columns.some((c) => c.kind === 'responsibility')) {
+    columns.push({ ...BUILTIN_COLUMNS.find((c) => c.kind === 'responsibility')! });
+  }
+  const respIds = new Set(responsibilities.map((r) => r.id));
+  for (const task of tasks) if (task.responsibility && !respIds.has(task.responsibility)) delete task.responsibility;
   // Nur Werte behalten, zu denen es eine Textspalte gibt
   const textIds = new Set(columns.filter((c) => c.kind === 'text').map((c) => c.id));
   for (const task of tasks) {
@@ -81,6 +91,7 @@ export function parseProject(text: string): Project {
     calendar: 'workdays',
     name: typeof obj.name === 'string' && obj.name.trim() ? obj.name : 'Importiertes Projekt',
     columns,
+    responsibilities,
     tasks,
   };
 }
@@ -91,7 +102,7 @@ function parseFields(raw: unknown): Record<string, string> | undefined {
   return entries.length ? Object.fromEntries(entries) : undefined;
 }
 
-const KINDS: ColumnKind[] = ['name', 'start', 'end', 'duration', 'buffer', 'text'];
+const KINDS: ColumnKind[] = ['name', 'start', 'end', 'duration', 'responsibility', 'buffer', 'text'];
 
 /** Spalten prüfen; fehlt die Angabe (ältere Dateien), gelten die Standardspalten. */
 function parseColumns(raw: unknown): Column[] {
@@ -134,6 +145,18 @@ function parseDependencies(raw: unknown, legacy: Set<string>, taskId: unknown): 
         lag: typeof d.lag === 'number' && Number.isFinite(d.lag) ? Math.round(d.lag) : 0,
       });
     }
+  }
+  return result;
+}
+
+function parseResponsibilities(raw: unknown[]): Responsibility[] {
+  const seen = new Set<string>();
+  const result: Responsibility[] = [];
+  for (const item of raw) {
+    const r = item as Partial<Responsibility>;
+    if (!r || typeof r.id !== 'string' || !r.id || seen.has(r.id) || typeof r.name !== 'string' || !r.name.trim()) continue;
+    seen.add(r.id);
+    result.push({ id: r.id, name: r.name.trim(), color: typeof r.color === 'string' && HEX_RE.test(r.color) ? r.color : GE_COLOR });
   }
   return result;
 }

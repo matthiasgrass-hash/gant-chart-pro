@@ -25,7 +25,7 @@ const dates = (tasks: Task[], id: string) => {
   const t = tasks.find((x) => x.id === id)!;
   return [t.start, t.end];
 };
-const project = (tasks: Task[]): Project => ({ version: 1, calendar: 'workdays', name: 'T', columns: DEFAULT_COLUMNS, tasks });
+const project = (tasks: Task[]): Project => ({ version: 1, calendar: 'workdays', name: 'T', columns: DEFAULT_COLUMNS, responsibilities: [], tasks });
 const load = (tasks: Task[]) => projectReducer(project([]), { type: 'load', project: project(tasks) });
 
 // Vorgänger A: Mo 01.–Fr 05.06.2026 (5 Arbeitstage), Nachfolger B dauert 3 Arbeitstage

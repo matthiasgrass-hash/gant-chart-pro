@@ -13,6 +13,14 @@
   --primary-soft: #f3eefb;
   --danger: #dc2626;
   --selected: #f3eefb;
+  --heading: #334155;
+  --row-line: #eef2f7;
+  --input-bg: #ffffff;
+  --on-primary: #ffffff;
+  --toast-bg: #1e293b;
+  --shadow: rgba(15, 23, 42, 0.15);
+  --backdrop: rgba(15, 23, 42, 0.4);
+  --success: #10b981;
   --radius: 8px;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--text);
@@ -122,19 +130,19 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
   background: var(--surface-2);
   border-bottom: 1px solid var(--border-strong);
   font-weight: 600;
-  color: #334155;
+  color: var(--heading);
 }
-.task-list__row { border-bottom: 1px solid #eef2f7; cursor: default; color: var(--text-2); }
+.task-list__row { border-bottom: 1px solid var(--row-line); cursor: default; color: var(--text-2); }
 .task-list__row:hover { background: var(--surface-2); }
 .task-list__row.is-selected { background: var(--selected); }
 .task-name { display: flex; align-items: center; gap: 8px; color: var(--text); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.task-name .done { color: #10b981; font-weight: 700; }
+.task-name .done { color: var(--success); font-weight: 700; }
 .num { text-align: right; justify-content: flex-end; }
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 /* Spaltenköpfe: umbenennen per Klick, löschen per ✕ */
 .col-head { position: relative; display: flex; align-items: center; min-width: 0; }
-.col-head .inline-edit { font-weight: 600; color: #334155; }
+.col-head .inline-edit { font-weight: 600; color: var(--heading); }
 .col-delete {
   position: absolute;
   right: -4px;
@@ -193,7 +201,7 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+  box-shadow: 0 10px 30px var(--shadow);
 }
 .menu button { border: none; text-align: left; font-weight: 400; }
 .menu button:hover { background: var(--primary-soft); }
@@ -214,6 +222,7 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
 /* Dialog */
 .task-dialog {
   border: none;
+  background: var(--surface);
   border-radius: 12px;
   padding: 0;
   width: min(520px, calc(100vw - 32px));
@@ -222,17 +231,19 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
   max-height: calc(100vh - 32px);
   overflow: auto;
 }
-.task-dialog::backdrop { background: rgba(15, 23, 42, 0.4); }
-.task-dialog form { display: flex; flex-direction: column; gap: 14px; padding: 20px 22px; }
+.task-dialog::backdrop { background: var(--backdrop); }
+.task-dialog > form { display: flex; flex-direction: column; gap: 14px; padding: 20px 22px; }
 .task-dialog h2 { margin: 0; font-size: 18px; }
 .field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--text-2); border: none; padding: 0; margin: 0; min-width: 0; }
-.field > span, .field legend { font-weight: 600; color: #334155; padding: 0; }
+.field > span, .field legend { font-weight: 600; color: var(--heading); padding: 0; }
+.field select,
 .field input:not([type='range']):not([type='checkbox']):not([type='color']) {
   font: inherit;
   font-size: 14px;
   padding: 7px 10px;
   border: 1px solid var(--border-strong);
   border-radius: 6px;
+  background: var(--input-bg);
   color: var(--text);
 }
 .field output { padding: 8px 0; font-size: 14px; color: var(--text); }
@@ -240,7 +251,7 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
 .colors { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .color-swatch { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 2px solid transparent; }
 .color-swatch.is-active { border-color: var(--text); box-shadow: inset 0 0 0 2px #fff; }
-.colors input[type='color'] { width: 32px; height: 26px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 1px; background: #fff; }
+.colors input[type='color'] { width: 32px; height: 26px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 1px; background: var(--input-bg); }
 .deps { max-height: 180px; overflow: auto; gap: 2px; }
 .deps legend { margin-bottom: 6px; }
 .deps { max-height: 260px; }
@@ -254,7 +265,7 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
   padding: 3px 4px;
   border: 1px solid var(--border-strong);
   border-radius: 5px;
-  background: #fff;
+  background: var(--input-bg);
   color: var(--text);
 }
 .dep-settings input { width: 52px; }
@@ -277,8 +288,8 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
   border-radius: 8px;
   font-size: 13px;
   color: #fff;
-  background: #1e293b;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+  background: var(--toast-bg);
+  box-shadow: 0 8px 24px var(--shadow);
   z-index: 10;
 }
 .toast--error { background: var(--danger); }
@@ -292,3 +303,124 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
   .gantt { margin: 8px; }
   .statusbar .muted { display: none; }
 }
+
+/* ---------- Zuständigkeiten & Legende ---------- */
+.resp-cell { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.resp-select {
+  font: inherit;
+  font-size: 12px;
+  min-width: 0;
+  width: 100%;
+  padding: 2px 2px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.resp-select:hover, .resp-select:focus { border-color: var(--border-strong); background: var(--input-bg); }
+.resp-select option { background: var(--surface); color: var(--text); }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  margin: 0 16px 10px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--text);
+}
+.legend__title { font-weight: 700; color: var(--heading); margin-right: 4px; }
+.legend__item { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; border-radius: 4px; padding: 2px 4px; }
+.legend__item:hover { background: var(--surface-2); }
+.legend__item:focus-within { outline: 2px solid var(--primary); }
+.legend__swatch { width: 14px; height: 14px; border-radius: 3px; flex: none; }
+.legend__manage { font-size: 12px; color: var(--primary); font-weight: 600; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+.small { font-size: 12px; }
+
+.resp-dialog .dialog-body { display: flex; flex-direction: column; gap: 12px; padding: 20px 22px; }
+.resp-dialog h2 { margin: 0; font-size: 18px; }
+.resp-dialog p { margin: 0; }
+.resp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow: auto; }
+.resp-list li { display: flex; align-items: center; gap: 8px; }
+.resp-list input[type='color'] { width: 32px; height: 28px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 1px; background: var(--input-bg); flex: none; }
+.resp-name, .resp-add input {
+  font: inherit;
+  font-size: 14px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text);
+}
+.resp-count { width: 74px; text-align: right; flex: none; }
+.resp-add { display: flex; gap: 8px; }
+
+/* PDF-Menü & Design-Umschalter */
+.pdf-menu { position: relative; }
+.pdf-menu__panel { gap: 8px; padding: 10px; min-width: 200px; }
+.menu__check { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 2px; cursor: pointer; color: var(--text); }
+.pdf-menu__panel button.primary { text-align: center; }
+.theme-toggle { width: 34px; padding: 6px 0; font-size: 15px; line-height: 1; }
+
+/* ---------- Dark Mode ---------- */
+/* Gilt bei data-theme="dark" (Umschalter oder Systemeinstellung beim Start).
+   Das Diagramm nutzt feste Farbattribute; im Dark Mode werden sie hier per CSS überschrieben.
+   Der PNG/PDF-Export liest die Attribute direkt und ist deshalb immer hell. */
+:root[data-theme='dark'] {
+  --bg: #0b0d12;
+  --surface: #151820;
+  --surface-2: #1b1f29;
+  --border: #2a2f3b;
+  --border-strong: #3a4150;
+  --text: #e6e8ee;
+  --text-2: #a9b0bf;
+  --muted: #747c8d;
+  --primary: #9b6be0;
+  --primary-hover: #b48af0;
+  --primary-soft: #2a2140;
+  --danger: #f26b6b;
+  --selected: #251d38;
+  --heading: #cdd2dc;
+  --row-line: #22262f;
+  --input-bg: #10131a;
+  --toast-bg: #2b3140;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --backdrop: rgba(0, 0, 0, 0.6);
+  --success: #34d399;
+  color-scheme: dark;
+}
+:root[data-theme='dark'] button.primary,
+:root[data-theme='dark'] .segmented button.is-active { background: #6f35bf; border-color: #6f35bf; }
+:root[data-theme='dark'] button.primary:hover:not(:disabled) { background: #7d43cd; border-color: #7d43cd; }
+:root[data-theme='dark'] .app-title { color: var(--primary); }
+
+/* Diagramm (SVG) */
+:root[data-theme='dark'] .gantt-svg rect[fill='#ffffff'] { fill: #151820; }
+:root[data-theme='dark'] .gantt-svg [fill='#f8fafc'] { fill: #1b1f29; }
+:root[data-theme='dark'] .gantt-svg [fill='#f1f5f9'] { fill: #1d212b; }
+:root[data-theme='dark'] .gantt-svg [fill='#f1edf9'] { fill: #231e31; }
+:root[data-theme='dark'] .gantt-svg [fill='#f3eefb'] { fill: #251d38; }
+:root[data-theme='dark'] .gantt-svg [fill='#fee2e2'] { fill: #3b1d22; }
+:root[data-theme='dark'] .gantt-svg [stroke='#e2e8f0'] { stroke: #262b36; }
+:root[data-theme='dark'] .gantt-svg [stroke='#eef2f7'] { stroke: #20242d; }
+:root[data-theme='dark'] .gantt-svg [stroke='#cbd5e1'] { stroke: #343a48; }
+:root[data-theme='dark'] .gantt-svg [fill='#334155'] { fill: #cdd2dc; }
+:root[data-theme='dark'] .gantt-svg [fill='#475569'] { fill: #a9b0bf; }
+:root[data-theme='dark'] .gantt-svg [fill='#94a3b8'] { fill: #6b7385; }
+:root[data-theme='dark'] .gantt-svg [fill='#1e1b2e'] { fill: #eef0f5; }
+:root[data-theme='dark'] .gantt-svg .dependency path[stroke='#64748b'] { stroke: #8a93a6; }
+:root[data-theme='dark'] .gantt-svg marker path[fill='#64748b'] { fill: #8a93a6; }
+:root[data-theme='dark'] .gantt-svg [stroke='#1e293b'] { stroke: #f1f5f9; }
+:root[data-theme='dark'] .gantt-svg text[fill='#6022a7'] { fill: #b48af0; }
+:root[data-theme='dark'] .gantt-svg .dependency path[stroke='#6022a7'],
+:root[data-theme='dark'] .gantt-svg line[stroke='#6022a7'] { stroke: #b48af0; }
+:root[data-theme='dark'] .gantt-svg marker path[fill='#6022a7'] { fill: #b48af0; }
+:root[data-theme='dark'] .gantt-svg .link-handle { fill: #151820; }

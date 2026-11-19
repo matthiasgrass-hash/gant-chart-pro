@@ -8,6 +8,8 @@ Alle Daten bleiben lokal im Browser (localStorage), es wird kein Server benötig
 - **Aufgaben & Zeitleiste** – Aufgaben anlegen, bearbeiten, löschen und sortieren; Zeitskala **Tag / Woche / Monat**, Wochenenden, Kalenderwochen, Heute-Linie
 - **Drag & Drop** – Balken ziehen verschiebt die Aufgabe, die Ränder ziehen ändert Start bzw. Ende (tagesgenau einrastend)
 - **Abhängigkeiten** in vier Arten – **EA** Ende→Anfang, **AA** Anfang→Anfang, **EE** Ende→Ende, **AE** Anfang→Ende – jeweils mit **Versatz in Tagen** (negativ = Überlappung). Anlegen per Ziehen vom Punkt rechts am Balken oder im Dialog; Klick auf einen Pfeil öffnet die Bearbeitung. Zirkuläre Abhängigkeiten werden verhindert.
+- **Zuständigkeiten & Legende** – Spalte „Zuständigkeit“ mit Auswahlfeld (vorgegeben: GE, bauseitig, Elektro, Klima/Kälte, HF-Kabine, Schlosser; eigene über „+ Neue Zuständigkeit…“). Jede Zuständigkeit hat eine Farbe, die alle zugehörigen Balken übernehmen. Die Legende unter dem Diagramm zeigt die im Projekt verwendeten Zuständigkeiten in diesen Farben; Klick auf einen Eintrag ändert die Farbe, „Zuständigkeiten verwalten“ zum Umbenennen, Hinzufügen und Löschen. Im PDF-Export ist die Legende per Häkchen zuschaltbar.
+- **Dark Mode** – Umschalter oben rechts (☾/☀); ohne eigene Wahl gilt die Systemeinstellung. PNG/PDF-Exporte sind immer hell.
 - **Puffer** – pro Aufgabe optional Puffertage nach dem Ende (Dialog „Puffer nach Ende“). Nachfolger mit EA/EE starten bzw. enden erst nach dem Puffer; im Diagramm schraffiert dargestellt, als Spalte „Puffer“ über „+ Spalte“ einblendbar.
 - **Automatische Planung** – wird eine Aufgabe verschoben oder ihre Dauer geändert, wandern alle Nachfolger (über die ganze Kette) automatisch mit, schon während des Ziehens. Verschiebt man eine abhängige Aufgabe selbst, bleibt sie liegen und ihr Versatz passt sich an.
 - **Spalten anpassen** – über „+ Spalte" eigene Textspalten anlegen (z. B. „Verantwortlich"), Spaltennamen per Klick umbenennen, Spalten über ✕ löschen; Start/Ende/Tage lassen sich ausblenden und wieder einblenden. Textzellen per Klick direkt bearbeiten oder im Aufgaben-Dialog.
@@ -64,9 +66,13 @@ src/
   "name": "Mein Projekt",
   "tasks": [
     { "id": "a", "name": "Konzept", "start": "2026-11-16", "end": "2026-11-20",
-      "progress": 50, "color": "#6022a7", "buffer": 2,
+      "progress": 50, "color": "#6022a7", "buffer": 2, "responsibility": "elektro",
       "dependencies": [{ "taskId": "x", "type": "SS", "lag": 2 }],
       "fields": { "owner": "Anna" } }
+  ],
+  "responsibilities": [
+    { "id": "ge", "name": "GE", "color": "#6022a7" },
+    { "id": "elektro", "name": "Elektro", "color": "#f59e0b" }
   ],
   "columns": [
     { "id": "name", "kind": "name", "label": "Aufgabe" },

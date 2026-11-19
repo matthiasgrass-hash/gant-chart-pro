@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import type { Column, Dependency, DependencyType, Task } from '../types';
+import type { Column, Dependency, DependencyType, Responsibility, Task } from '../types';
 import { TASK_COLORS } from '../lib/colors';
 import { formatDate, isValidIso } from '../lib/date';
 import { workDays } from '../lib/workdays';
@@ -11,14 +11,22 @@ interface Props {
   isNew: boolean;
   allTasks: Task[];
   columns: Column[];
-  onSave: (task: Task) => void;
+  responsibilities: Responsibility[];
+  /** Legt eine Zuständigkeit an und gibt ihre ID zurück */
+  onCreateResponsibility: (name: string) => string | null;
+  onSave: (task: Task, responsibilityColor?: { id: string; color: string }) => void;
   onDelete: (task: Task) => void;
   onClose: () => void;
 }
 
-export function TaskDialog({ task, isNew, allTasks, columns, onSave, onDelete, onClose }: Props) {
+export function TaskDialog({ task, isNew, allTasks, columns, responsibilities, onCreateResponsibility, onSave, onDelete, onClose }: Props) {
   const textColumns = columns.filter((c) => c.kind === 'text');
   const [draft, setDraft] = useState<Task>(task);
+  const resp = responsibilities.find((r) => r.id === draft.responsibility);
+  // Farbe der Zuständigkeit wird erst beim Speichern übernommen
+  const [respColors, setRespColors] = useState<Record<string, string>>({});
+  const shownColor = resp ? (respColors[resp.id] ?? resp.color) : draft.color;
+  const setColor = (c: string) => (resp ? setRespColors((m) => ({ ...m, [resp.id]: c })) : update('color', c));
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -60,7 +68,8 @@ export function TaskDialog({ task, isNew, allTasks, columns, onSave, onDelete, o
     if (!isValidIso(draft.start) || !isValidIso(draft.end)) return setError('Bitte gültige Daten eingeben.');
     if (draft.end < draft.start) return setError('Das Ende darf nicht vor dem Start liegen.');
     const fields = Object.fromEntries(Object.entries(draft.fields ?? {}).filter(([, v]) => v.trim() !== ''));
-    onSave({ ...draft, name: draft.name.trim(), fields });
+    const respColor = resp && respColors[resp.id] && respColors[resp.id] !== resp.color ? { id: resp.id, color: respColors[resp.id] } : undefined;
+    onSave({ ...draft, name: draft.name.trim(), fields }, respColor);
   };
 
   return (
@@ -86,6 +95,7 @@ export function TaskDialog({ task, isNew, allTasks, columns, onSave, onDelete, o
             <span>Dauer</span>
             <output>{isValidIso(draft.start) && isValidIso(draft.end) && draft.end >= draft.start ? `${workDays(draft.start, draft.end)} Arbeitstage` : '–'}</output>
           </div>
+        </div>
 
         <label className="field field--inline">
           <span>Puffer nach Ende</span>
@@ -100,7 +110,6 @@ export function TaskDialog({ task, isNew, allTasks, columns, onSave, onDelete, o
           <span className="muted">Arbeitstage</span>
           <small id="buffer-hint" className="muted">Nachfolger (EA/EE) starten erst nach dem Puffer.</small>
         </label>
-        </div>
 
         {textColumns.length > 0 && (
           <div className="field-grid">
@@ -121,21 +130,46 @@ export function TaskDialog({ task, isNew, allTasks, columns, onSave, onDelete, o
           <input type="range" min={0} max={100} step={5} value={draft.progress} onChange={(e) => update('progress', Number(e.target.value))} />
         </label>
 
+        <label className="field">
+          <span>Zuständigkeit</span>
+          <select
+            value={draft.responsibility ?? ''}
+            onChange={(e) => {
+              if (e.target.value === '__new__') {
+                const name = prompt('Name der neuen Zuständigkeit:');
+                const id = name ? onCreateResponsibility(name) : null;
+                if (id) update('responsibility', id);
+                return;
+              }
+              update('responsibility', e.target.value || undefined);
+            }}
+          >
+            <option value="">– keine –</option>
+            {responsibilities.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+            <option value="__new__">+ Neue Zuständigkeit…</option>
+          </select>
+        </label>
+
         <div className="field">
-          <span>Farbe</span>
+          <span>{resp ? `Farbe der Zuständigkeit „${resp.name}“` : 'Farbe'}</span>
           <div className="colors">
             {TASK_COLORS.map((c) => (
               <button
                 type="button"
                 key={c}
-                className={`color-swatch${draft.color === c ? ' is-active' : ''}`}
+                className={`color-swatch${shownColor.toLowerCase() === c ? ' is-active' : ''}`}
                 style={{ background: c }}
                 aria-label={`Farbe ${c}`}
-                onClick={() => update('color', c)}
+                onClick={() => setColor(c)}
               />
             ))}
-            <input type="color" value={draft.color} onChange={(e) => update('color', e.target.value)} aria-label="Eigene Farbe" />
+            <input type="color" value={shownColor} onChange={(e) => setColor(e.target.value)} aria-label="Eigene Farbe" />
           </div>
+          {resp && <small className="muted">Gilt für alle Aufgaben mit dieser Zuständigkeit und erscheint so in der Legende.</small>}
         </div>
 
         <fieldset className="field deps">

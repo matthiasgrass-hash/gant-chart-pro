@@ -9,7 +9,7 @@ describe('Spalten', () => {
   it('Beispielprojekt nutzt GE-Farbe und Standardspalten', () => {
     const p = createSampleProject();
     expect(p.tasks.every((t) => t.color === GE_COLOR)).toBe(true);
-    expect(p.columns.map((c) => c.kind)).toEqual(['name', 'start', 'end', 'duration']);
+    expect(p.columns.map((c) => c.kind)).toEqual(['name', 'start', 'end', 'duration', 'responsibility']);
   });
 
   it('Textspalte hinzufügen, befüllen, umbenennen und löschen', () => {
@@ -61,6 +61,6 @@ describe('Spalten', () => {
         tasks: [],
       }),
     );
-    expect(p.columns).toEqual([{ id: 'n', kind: 'name', label: 'Was' }, { id: 's', kind: 'start', label: 'S' }]);
+    expect(p.columns).toEqual([{ id: 'n', kind: 'name', label: 'Was' }, { id: 's', kind: 'start', label: 'S' }, { id: 'responsibility', kind: 'responsibility', label: 'Zuständigkeit' }]);
   });
 });

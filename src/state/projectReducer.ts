@@ -1,4 +1,4 @@
-import type { Column, Dependency, DependencyType, Project, Task } from '../types';
+import type { Column, Dependency, DependencyType, Project, Responsibility, Task } from '../types';
 import { wouldCreateCycle } from '../lib/graph';
 import { alignLags, initialLag, normalizeDates, schedule, snapToWorkdays } from '../lib/schedule';
 
@@ -14,7 +14,10 @@ export type ProjectAction =
   | { type: 'addColumn'; column: Column }
   | { type: 'renameColumn'; id: string; label: string }
   | { type: 'deleteColumn'; id: string }
-  | { type: 'setField'; taskId: string; columnId: string; value: string };
+  | { type: 'setField'; taskId: string; columnId: string; value: string }
+  | { type: 'addResponsibility'; responsibility: Responsibility; assignTo?: string }
+  | { type: 'updateResponsibility'; id: string; patch: Partial<Omit<Responsibility, 'id'>> }
+  | { type: 'deleteResponsibility'; id: string };
 
 function mapTask(project: Project, id: string, fn: (t: Task) => Task): Project {
   return { ...project, tasks: project.tasks.map((t) => (t.id === id ? fn(t) : t)) };
@@ -138,6 +141,33 @@ export function projectReducer(state: Project, action: ProjectAction): Project {
         }),
       };
     }
+    case 'addResponsibility': {
+      const name = action.responsibility.name.trim();
+      if (!name) return state;
+      // Gleicher Name (ohne Groß-/Kleinschreibung) → vorhandene Zuständigkeit verwenden
+      const existing = state.responsibilities.find((r) => r.name.toLowerCase() === name.toLowerCase());
+      const resp = existing ?? { ...action.responsibility, name };
+      const next = existing ? state : { ...state, responsibilities: [...state.responsibilities, resp] };
+      return action.assignTo ? mapTask(next, action.assignTo, (t) => ({ ...t, responsibility: resp.id })) : next;
+    }
+    case 'updateResponsibility': {
+      const patch = { ...action.patch };
+      if (patch.name !== undefined) {
+        patch.name = patch.name.trim();
+        if (!patch.name) delete patch.name;
+      }
+      return { ...state, responsibilities: state.responsibilities.map((r) => (r.id === action.id ? { ...r, ...patch } : r)) };
+    }
+    case 'deleteResponsibility':
+      return {
+        ...state,
+        responsibilities: state.responsibilities.filter((r) => r.id !== action.id),
+        tasks: state.tasks.map((t) => {
+          if (t.responsibility !== action.id) return t;
+          const { responsibility: _r, ...rest } = t;
+          return rest;
+        }),
+      };
     case 'setField':
       return mapTask(state, action.taskId, (t) => {
         const fields = { ...t.fields };

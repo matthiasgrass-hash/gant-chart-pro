@@ -1,4 +1,5 @@
-import type { Column, ColumnKind, Task } from '../types';
+import type { Column, ColumnKind, Responsibility, Task } from '../types';
+import { responsibilityName } from './responsibilities';
 import { formatDate } from './date';
 import { workDays } from './workdays';
 
@@ -7,6 +8,7 @@ export const BUILTIN_LABELS: Record<Exclude<ColumnKind, 'text'>, string> = {
   start: 'Start',
   end: 'Ende',
   duration: 'Tage',
+  responsibility: 'Zuständigkeit',
   buffer: 'Puffer',
 };
 
@@ -16,19 +18,20 @@ export const BUILTIN_COLUMNS: Column[] = [
   { id: 'start', kind: 'start', label: BUILTIN_LABELS.start },
   { id: 'end', kind: 'end', label: BUILTIN_LABELS.end },
   { id: 'duration', kind: 'duration', label: BUILTIN_LABELS.duration },
+  { id: 'responsibility', kind: 'responsibility', label: BUILTIN_LABELS.responsibility },
   { id: 'buffer', kind: 'buffer', label: BUILTIN_LABELS.buffer },
 ];
 
-export const DEFAULT_COLUMNS: Column[] = BUILTIN_COLUMNS.slice(0, 4);
+export const DEFAULT_COLUMNS: Column[] = BUILTIN_COLUMNS.slice(0, 5);
 
-export const COLUMN_WIDTH: Record<ColumnKind, number> = { name: 220, start: 88, end: 88, duration: 52, buffer: 60, text: 140 };
+export const COLUMN_WIDTH: Record<ColumnKind, number> = { name: 220, start: 88, end: 88, duration: 52, responsibility: 130, buffer: 60, text: 140 };
 
 export const ACTIONS_WIDTH = 96;
 
 /** Rechtsbündige Zahlenspalten */
 export const isNumericColumn = (kind: ColumnKind) => kind === 'duration' || kind === 'buffer';
 
-export function cellText(task: Task, column: Column): string {
+export function cellText(task: Task, column: Column, responsibilities: Responsibility[] = []): string {
   switch (column.kind) {
     case 'name':
       return task.name;
@@ -38,6 +41,8 @@ export function cellText(task: Task, column: Column): string {
       return formatDate(task.end);
     case 'duration':
       return String(workDays(task.start, task.end));
+    case 'responsibility':
+      return responsibilityName(task, responsibilities);
     case 'buffer':
       return task.buffer ? String(task.buffer) : '–';
     case 'text':
