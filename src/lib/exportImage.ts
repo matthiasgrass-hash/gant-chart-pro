@@ -1,6 +1,7 @@
 import type { Project, Responsibility } from '../types';
 import { cellText, columnWidth, isNumericColumn } from './columns';
 import { HEADER_HEIGHT, ROW_HEIGHT } from './timeline';
+import { formatDate, todayIso } from './date';
 
 const TABLE_PAD = 16;
 const LEGEND_PAD = 14;
@@ -72,6 +73,8 @@ export function buildExportSvg(
   svg.appendChild(el('text', { x: textX, y: 33, 'font-size': 15, 'font-weight': 700, 'letter-spacing': 0.5, fill: BRAND }, APP_TITLE.toUpperCase()));
   svg.appendChild(el('text', { x: textX, y: 60, 'font-size': 24, 'font-weight': 700, fill: '#0f172a' }, project.name));
   svg.appendChild(el('rect', { x: 0, y: 0, width, height: 4, fill: BRAND }));
+  // Stand (Erstellungsdatum) rechts oben
+  svg.appendChild(el('text', { x: width - 16, y: 60, 'font-size': 15, fill: '#475569', 'text-anchor': 'end' }, `Stand: ${formatDate(todayIso())}`));
 
   // Tabelle links: dieselben Spalten wie in der Aufgabenliste
   const names = el('g', { transform: `translate(0 ${title})` });
