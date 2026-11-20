@@ -291,6 +291,43 @@ export async function exportPdf(
   const filename = `${fileBaseName(project)}.pdf`;
   const blob = pdf.output('blob');
   downloadBlob(blob, filename);
-  // Fertiges PDF im vorab geöffneten Tab anzeigen (der Blob-URL bleibt dafür gültig)
-  if (viewer && !viewer.closed) viewer.location.href = URL.createObjectURL(new File([blob], filename, { type: 'application/pdf' }));
+  if (viewer && !viewer.closed) showPdfInViewer(viewer, blob, filename);
+}
+
+/**
+ * Fertiges PDF im vorab geöffneten Tab anzeigen. Das PDF wird eingebettet (statt den Tab
+ * umzuleiten – das klappt nicht in allen Browsern, z. B. Edge). Zusätzlich gibt es einen Link,
+ * falls die Einbettung blockiert wird. Der Blob-URL bleibt für den Tab gültig.
+ */
+function showPdfInViewer(viewer: Window, blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(new File([blob], filename, { type: 'application/pdf' }));
+  try {
+    const doc = viewer.document;
+    doc.title = filename;
+    doc.body.replaceChildren();
+    doc.body.style.cssText = 'margin:0;height:100vh;display:flex;flex-direction:column;font-family:system-ui,sans-serif;background:#f1f5f9';
+    const bar = doc.createElement('div');
+    bar.style.cssText = 'display:flex;gap:12px;align-items:center;padding:8px 14px;font-size:14px;color:#334155;background:#fff;border-bottom:1px solid #e2e8f0';
+    const name = doc.createElement('strong');
+    name.textContent = filename;
+    const open = doc.createElement('a');
+    open.href = url;
+    open.target = '_self';
+    open.textContent = 'PDF öffnen';
+    open.style.cssText = 'margin-left:auto;color:#6022a7;font-weight:600';
+    const save = doc.createElement('a');
+    save.href = url;
+    save.download = filename;
+    save.textContent = 'Herunterladen';
+    save.style.cssText = 'color:#6022a7;font-weight:600';
+    bar.append(name, open, save);
+    const frame = doc.createElement('iframe');
+    frame.src = url;
+    frame.title = filename;
+    frame.style.cssText = 'flex:1;border:0;width:100%';
+    doc.body.append(bar, frame);
+  } catch {
+    // Kein Zugriff auf das Dokument des Tabs → direkt umleiten
+    viewer.location.href = url;
+  }
 }
