@@ -46,3 +46,17 @@ describe('serialize', () => {
     expect(p.tasks[0].progress).toBe(0);
   });
 });
+
+describe('Reihenfolge per Ziehen', () => {
+  it('verschiebt eine Aufgabe an eine beliebige Position', () => {
+    const p0 = createSampleProject();
+    const ids = p0.tasks.map((t) => t.id);
+    const down = projectReducer(p0, { type: 'reorderTask', id: ids[0], toIndex: 3 });
+    expect(down.tasks.map((t) => t.id)).toEqual([ids[1], ids[2], ids[3], ids[0], ...ids.slice(4)]);
+    const up = projectReducer(p0, { type: 'reorderTask', id: ids[5], toIndex: 1 });
+    expect(up.tasks.map((t) => t.id)).toEqual([ids[0], ids[5], ids[1], ids[2], ids[3], ids[4], ...ids.slice(6)]);
+    expect(projectReducer(p0, { type: 'reorderTask', id: ids[2], toIndex: 2 })).toBe(p0);
+    // außerhalb des Bereichs → ans Ende
+    expect(projectReducer(p0, { type: 'reorderTask', id: ids[0], toIndex: 99 }).tasks[ids.length - 1].id).toBe(ids[0]);
+  });
+});

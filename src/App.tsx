@@ -406,6 +406,7 @@ export default function App() {
           }}
           onEdit={(task) => editTask(task.id)}
           onMove={(id, direction) => dispatch({ type: 'moveTask', id, direction })}
+          onReorder={(id, toIndex) => dispatch({ type: 'reorderTask', id, toIndex })}
           onDelete={deleteTask}
         />
         <GanttChart

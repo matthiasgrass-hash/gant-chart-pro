@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import type { Column, Responsibility, Task } from '../types';
 import { ACTIONS_WIDTH, COLUMN_WIDTH, cellText, isNumericColumn, missingBuiltins } from '../lib/columns';
 import { HEADER_HEIGHT, ROW_HEIGHT } from '../lib/timeline';
@@ -22,6 +22,8 @@ interface Props {
   onRenameTask: (taskId: string, name: string) => void;
   /** Dauer in Arbeitstagen setzen (Ende verschiebt sich) */
   onSetDuration: (taskId: string, days: number) => void;
+  /** Aufgabe per Ziehen an eine neue Position in der Reihenfolge setzen */
+  onReorder: (taskId: string, toIndex: number) => void;
 }
 
 export const NEW_RESPONSIBILITY = '__new__';
@@ -138,6 +140,7 @@ export function TaskList(p: Props) {
   const { tasks, columns, selectedId } = p;
   const template = `${columns.map((c) => (c.kind === 'name' ? `minmax(0, ${COLUMN_WIDTH.name}px)` : `${COLUMN_WIDTH[c.kind]}px`)).join(' ')} ${ACTIONS_WIDTH}px`;
   const [freshColumn, setFreshColumn] = useState<string | null>(null);
+  const rowDrag = useRowDrag(tasks.length, (id, to) => p.onReorder(id, to));
   const prevCount = useRef(columns.length);
   // Neu angelegte Textspalte direkt zum Umbenennen öffnen
   useEffect(() => {
@@ -167,14 +170,21 @@ export function TaskList(p: Props) {
         <div
           key={t.id}
           role="row"
-          className={`task-list__row${t.id === selectedId ? ' is-selected' : ''}`}
-          style={{ height: ROW_HEIGHT, gridTemplateColumns: template }}
+          className={`task-list__row${t.id === selectedId ? ' is-selected' : ''}${rowDrag.draggingId === t.id ? ' is-dragging' : ''}${rowDrag.draggingId ? ' is-sorting' : ''}`}
+          style={{ height: ROW_HEIGHT, gridTemplateColumns: template, transform: rowDrag.offsetFor(t.id, i) }}
+          onPointerDown={(e) => rowDrag.onPointerDown(e, t.id, i)}
+          onPointerMove={rowDrag.onPointerMove}
+          onPointerUp={rowDrag.onPointerUp}
+          onPointerCancel={rowDrag.onPointerCancel}
           onClick={() => p.onSelect(t.id)}
           onDoubleClick={() => p.onEdit(t)}
         >
           {columns.map((c) =>
             c.kind === 'name' ? (
               <span key={c.id} role="cell" className="task-name">
+                <span className="row-grip" aria-hidden="true" title="Zum Verschieben ziehen">
+                  ⠿
+                </span>
                 <i className="swatch" style={{ background: t.color }} />
                 <InlineEdit
                   className="task-name__edit"
@@ -236,4 +246,71 @@ export function TaskList(p: Props) {
       ))}
     </div>
   );
+}
+
+/**
+ * Zeilen per Ziehen umsortieren: Zeile gedrückt halten und hoch/runter ziehen.
+ * Erst ab einigen Pixeln Bewegung wird gezogen – ein normaler Klick (z. B. Name bearbeiten) bleibt ein Klick.
+ */
+function useRowDrag(count: number, onDrop: (id: string, toIndex: number) => void) {
+  const [state, setState] = useState<{ id: string; from: number; dy: number; active: boolean } | null>(null);
+  const start = useRef<{ id: string; from: number; y: number; pointerId: number } | null>(null);
+
+  const target = (from: number, dy: number) => Math.max(0, Math.min(count - 1, from + Math.round(dy / ROW_HEIGHT)));
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>, id: string, index: number) => {
+    if (e.button !== 0) return;
+    // Bedienelemente behalten ihr Verhalten
+    if ((e.target as HTMLElement).closest('input, select, textarea, .row-actions, .col-delete')) return;
+    start.current = { id, from: index, y: e.clientY, pointerId: e.pointerId };
+  };
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const s = start.current;
+    if (!s || e.pointerId !== s.pointerId) return;
+    const dy = e.clientY - s.y;
+    if (!state?.active && Math.abs(dy) < 5) return;
+    if (!state?.active) e.currentTarget.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    setState({ id: s.id, from: s.from, dy, active: true });
+  };
+
+  const finish = (e: ReactPointerEvent<HTMLDivElement>, drop: boolean) => {
+    const s = start.current;
+    start.current = null;
+    if (!s || !state?.active) {
+      setState(null);
+      return;
+    }
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    const to = target(s.from, state.dy);
+    setState(null);
+    // Den Klick, der nach dem Loslassen kommt, verschlucken (sonst würde z. B. der Name bearbeitet)
+    const swallow = (ev: MouseEvent) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+    };
+    window.addEventListener('click', swallow, { capture: true, once: true });
+    setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
+    if (drop && to !== s.from) onDrop(s.id, to);
+  };
+
+  /** Verschiebung jeder Zeile während des Ziehens (gezogene Zeile folgt der Maus, andere weichen aus). */
+  const offsetFor = (id: string, index: number): string | undefined => {
+    if (!state?.active) return undefined;
+    if (id === state.id) return `translateY(${state.dy}px)`;
+    const to = target(state.from, state.dy);
+    if (state.from < to && index > state.from && index <= to) return `translateY(${-ROW_HEIGHT}px)`;
+    if (state.from > to && index >= to && index < state.from) return `translateY(${ROW_HEIGHT}px)`;
+    return undefined;
+  };
+
+  return {
+    draggingId: state?.active ? state.id : null,
+    offsetFor,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp: (e: ReactPointerEvent<HTMLDivElement>) => finish(e, true),
+    onPointerCancel: (e: ReactPointerEvent<HTMLDivElement>) => finish(e, false),
+  };
 }

@@ -448,3 +448,19 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
 .save-btn { font-weight: 600; }
 .save-btn.is-dirty { border-color: var(--primary); color: var(--primary); }
 .dirty-dot { font-size: 0.8em; }
+
+/* Zeilen per Ziehen umsortieren */
+.task-list__row { position: relative; background: var(--surface); }
+.task-list__row.is-selected { background: var(--selected); }
+.task-list__row.is-sorting { transition: transform 0.12s ease; user-select: none; }
+.task-list__row.is-dragging {
+  transition: none;
+  z-index: 5;
+  cursor: grabbing;
+  box-shadow: 0 6px 20px var(--shadow);
+  background: var(--surface);
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.row-grip { touch-action: none; color: var(--muted); cursor: grab; font-size: 14px; margin-left: -10px; width: 10px; opacity: 0; flex: none; user-select: none; }
+.task-list__row:hover .row-grip, .task-list__row.is-dragging .row-grip { opacity: 1; }

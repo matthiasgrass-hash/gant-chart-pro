@@ -9,6 +9,7 @@ export type ProjectAction =
   | { type: 'updateTask'; id: string; patch: Partial<Omit<Task, 'id'>> }
   | { type: 'deleteTask'; id: string }
   | { type: 'moveTask'; id: string; direction: -1 | 1 }
+  | { type: 'reorderTask'; id: string; toIndex: number }
   | { type: 'addDependency'; taskId: string; predecessorId: string; depType?: DependencyType }
   | { type: 'removeDependency'; taskId: string; predecessorId: string }
   | { type: 'addColumn'; column: Column }
@@ -96,6 +97,15 @@ export function projectReducer(state: Project, action: ProjectAction): Project {
       if (i < 0 || j < 0 || j >= state.tasks.length) return state;
       const tasks = [...state.tasks];
       [tasks[i], tasks[j]] = [tasks[j], tasks[i]];
+      return { ...state, tasks };
+    }
+    case 'reorderTask': {
+      const from = state.tasks.findIndex((t) => t.id === action.id);
+      const to = Math.max(0, Math.min(state.tasks.length - 1, Math.round(action.toIndex)));
+      if (from < 0 || from === to) return state;
+      const tasks = [...state.tasks];
+      const [moved] = tasks.splice(from, 1);
+      tasks.splice(to, 0, moved);
       return { ...state, tasks };
     }
     case 'addDependency': {
