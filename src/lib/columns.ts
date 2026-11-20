@@ -28,6 +28,18 @@ export const COLUMN_WIDTH: Record<ColumnKind, number> = { name: 260, start: 140,
 
 export const ACTIONS_WIDTH = 96;
 
+export const MIN_COLUMN_WIDTH = 44;
+export const MAX_COLUMN_WIDTH = 640;
+
+/** Breite einer Spalte: eigene Breite oder Standard der Spaltenart */
+export function columnWidth(c: Column): number {
+  return c.width ?? COLUMN_WIDTH[c.kind];
+}
+
+export function clampColumnWidth(w: number): number {
+  return Math.round(Math.max(MIN_COLUMN_WIDTH, Math.min(MAX_COLUMN_WIDTH, w)));
+}
+
 /** Rechtsbündige Zahlenspalten */
 export const isNumericColumn = (kind: ColumnKind) => kind === 'duration' || kind === 'buffer';
 

@@ -1,5 +1,5 @@
 import type { Project, Responsibility } from '../types';
-import { COLUMN_WIDTH, cellText, isNumericColumn } from './columns';
+import { cellText, columnWidth, isNumericColumn } from './columns';
 import { HEADER_HEIGHT, ROW_HEIGHT } from './timeline';
 
 const TABLE_PAD = 16;
@@ -56,7 +56,7 @@ export function buildExportSvg(
   const chartWidth = Number(chart.getAttribute('width'));
   const chartHeight = Number(chart.getAttribute('height'));
   const title = 84;
-  const tableWidth = project.columns.reduce((sum, c) => sum + COLUMN_WIDTH[c.kind] + COL_GAP, 0) + TABLE_PAD * 2 - COL_GAP;
+  const tableWidth = project.columns.reduce((sum, c) => sum + columnWidth(c) + COL_GAP, 0) + TABLE_PAD * 2 - COL_GAP;
   const width = tableWidth + chartWidth;
   const legendLayout = legend && legend.length ? layoutLegend(legend, width) : null;
   const height = title + chartHeight + (legendLayout ? legendLayout.height : 0);
@@ -79,7 +79,7 @@ export function buildExportSvg(
   names.appendChild(el('line', { x1: 0, x2: tableWidth, y1: HEADER_HEIGHT - 0.5, y2: HEADER_HEIGHT - 0.5, stroke: '#cbd5e1' }));
   let x = TABLE_PAD;
   const cols = project.columns.map((c) => {
-    const col = { column: c, x, width: COLUMN_WIDTH[c.kind] };
+    const col = { column: c, x, width: columnWidth(c) };
     x += col.width + COL_GAP;
     return col;
   });

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import type { Column, Responsibility, Task } from '../types';
-import { ACTIONS_WIDTH, COLUMN_WIDTH, cellText, isNumericColumn, missingBuiltins } from '../lib/columns';
+import { ACTIONS_WIDTH, cellText, clampColumnWidth, columnWidth, isNumericColumn, missingBuiltins } from '../lib/columns';
 import { HEADER_HEIGHT, ROW_HEIGHT } from '../lib/timeline';
 import { parseDays } from '../lib/worktime';
 
@@ -24,13 +24,16 @@ interface Props {
   onSetDuration: (taskId: string, days: number) => void;
   /** Aufgabe per Ziehen an eine neue Position in der Reihenfolge setzen */
   onReorder: (taskId: string, toIndex: number) => void;
+  /** Spaltenbreite setzen; null = Standardbreite */
+  onSetColumnWidth: (columnId: string, width: number | null) => void;
+  onMoveColumn: (columnId: string, toIndex: number) => void;
 }
 
 export const NEW_RESPONSIBILITY = '__new__';
 
-export function listWidth(columns: Column[]): number {
+export function listWidth(columns: Column[], widthOf: (c: Column) => number = columnWidth): number {
   // Spaltenbreiten + Aktionsspalte + Grid-Abstände (6px) + Innenabstand links/rechts
-  return columns.reduce((sum, c) => sum + COLUMN_WIDTH[c.kind], 0) + ACTIONS_WIDTH + columns.length * 6 + 20;
+  return columns.reduce((sum, c) => sum + widthOf(c), 0) + ACTIONS_WIDTH + columns.length * 6 + 20;
 }
 
 /** Text, der per Klick zum Eingabefeld wird. Enter/Verlassen speichert, Esc bricht ab. */
@@ -138,7 +141,37 @@ function AddColumnMenu({ columns, onAdd }: { columns: Column[]; onAdd: (c: Colum
 
 export function TaskList(p: Props) {
   const { tasks, columns, selectedId } = p;
-  const template = `${columns.map((c) => (c.kind === 'name' ? `minmax(0, ${COLUMN_WIDTH.name}px)` : `${COLUMN_WIDTH[c.kind]}px`)).join(' ')} ${ACTIONS_WIDTH}px`;
+  // Breiten während des Ziehens am Spaltenrand (live), sonst gespeicherte bzw. Standardbreite
+  const [liveWidths, setLiveWidths] = useState<Record<string, number>>({});
+  const widthOf = (c: Column) => liveWidths[c.id] ?? columnWidth(c);
+  const template = `${columns.map((c) => `${widthOf(c)}px`).join(' ')} ${ACTIONS_WIDTH}px`;
+  const headerRef = useRef<HTMLDivElement>(null);
+  const colDrag = useColumnDrag(headerRef, columns.length, (id, to) => p.onMoveColumn(id, to));
+
+  const startResize = (e: ReactPointerEvent<HTMLSpanElement>, c: Column) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    const startX = e.clientX;
+    const startW = widthOf(c);
+    let last = startW;
+    const move = (ev: PointerEvent) => {
+      last = clampColumnWidth(startW + ev.clientX - startX);
+      setLiveWidths({ [c.id]: last });
+    };
+    const up = () => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+      setLiveWidths({});
+      if (last !== startW) p.onSetColumnWidth(c.id, last);
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+  };
   const [freshColumn, setFreshColumn] = useState<string | null>(null);
   const rowDrag = useRowDrag(tasks.length, (id, to) => p.onReorder(id, to));
   const prevCount = useRef(columns.length);
@@ -152,18 +185,39 @@ export function TaskList(p: Props) {
   }, [columns]);
 
   return (
-    <div className="task-list" role="table" aria-label="Aufgabenliste" style={{ width: listWidth(columns) }}>
-      <div className="task-list__header" role="row" style={{ height: HEADER_HEIGHT, gridTemplateColumns: template }}>
-        {columns.map((c) => (
-          <span key={c.id} role="columnheader" className={`col-head${isNumericColumn(c.kind) ? ' num' : ''}`}>
+    <div className="task-list" role="table" aria-label="Aufgabenliste" style={{ width: listWidth(columns, widthOf) }}>
+      <div ref={headerRef} className="task-list__header" role="row" style={{ height: HEADER_HEIGHT, gridTemplateColumns: template }}>
+        {columns.map((c, ci) => (
+          <span
+            key={c.id}
+            role="columnheader"
+            data-col-index={ci}
+            className={`col-head${isNumericColumn(c.kind) ? ' num' : ''}${colDrag.draggingId === c.id ? ' is-dragging' : ''}`}
+            style={{ transform: colDrag.offsetFor(c.id) }}
+            title="Zum Verschieben ziehen · Klick auf den Namen: umbenennen"
+            onPointerDown={(e) => colDrag.onPointerDown(e, c.id, ci)}
+            onPointerMove={colDrag.onPointerMove}
+            onPointerUp={colDrag.onPointerUp}
+            onPointerCancel={colDrag.onPointerCancel}
+          >
             <InlineEdit key={freshColumn === c.id ? 'fresh' : 'normal'} autoEdit={freshColumn === c.id} value={c.label} onSave={(v) => p.onRenameColumn(c.id, v)} />
             {c.kind !== 'name' && (
               <button className="icon col-delete" title={`Spalte „${c.label}" löschen`} onClick={() => p.onDeleteColumn(c)}>
                 ✕
               </button>
             )}
+            <span
+              className="col-resize"
+              title="Breite ändern (ziehen) · Doppelklick: Standardbreite"
+              onPointerDown={(e) => startResize(e, c)}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                p.onSetColumnWidth(c.id, null);
+              }}
+            />
           </span>
         ))}
+        {colDrag.indicatorX !== null && <span className="col-drop-indicator" style={{ left: colDrag.indicatorX }} aria-hidden="true" />}
         <AddColumnMenu columns={columns} onAdd={p.onAddColumn} />
       </div>
       {tasks.map((t, i) => (
@@ -312,5 +366,64 @@ function useRowDrag(count: number, onDrop: (id: string, toIndex: number) => void
     onPointerMove,
     onPointerUp: (e: ReactPointerEvent<HTMLDivElement>) => finish(e, true),
     onPointerCancel: (e: ReactPointerEvent<HTMLDivElement>) => finish(e, false),
+  };
+}
+
+/**
+ * Spalten im Kopf per Ziehen verschieben. Erst ab einigen Pixeln Bewegung wird gezogen –
+ * ein Klick auf den Namen (Umbenennen) bleibt ein Klick. Eine Linie zeigt die Zielposition.
+ */
+function useColumnDrag(headerRef: { current: HTMLDivElement | null }, count: number, onDrop: (id: string, toIndex: number) => void) {
+  const [state, setState] = useState<{ id: string; dx: number; to: number; indicatorX: number } | null>(null);
+  const start = useRef<{ id: string; from: number; x: number; pointerId: number; cells: DOMRect[]; left: number } | null>(null);
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLSpanElement>, id: string, index: number) => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest('input, .col-resize, .col-delete')) return;
+    const header = headerRef.current;
+    if (!header) return;
+    const cells = [...header.querySelectorAll<HTMLElement>('[data-col-index]')].map((el) => el.getBoundingClientRect());
+    start.current = { id, from: index, x: e.clientX, pointerId: e.pointerId, cells, left: header.getBoundingClientRect().left };
+  };
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLSpanElement>) => {
+    const s = start.current;
+    if (!s || e.pointerId !== s.pointerId) return;
+    const dx = e.clientX - s.x;
+    if (!state && Math.abs(dx) < 6) return;
+    if (!state) e.currentTarget.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    // Einfügestelle: vor der ersten Spalte, deren Mitte rechts vom Mauszeiger liegt
+    let gap = s.cells.findIndex((r) => e.clientX < r.left + r.width / 2);
+    if (gap < 0) gap = count;
+    const to = gap > s.from ? gap - 1 : gap;
+    const edge = gap < count ? s.cells[gap].left - 3 : s.cells[count - 1].right + 3;
+    setState({ id: s.id, dx, to, indicatorX: edge - s.left });
+  };
+
+  const finish = (e: ReactPointerEvent<HTMLSpanElement>, drop: boolean) => {
+    const s = start.current;
+    start.current = null;
+    const st = state;
+    setState(null);
+    if (!s || !st) return;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    // Den Klick nach dem Loslassen verschlucken (sonst würde umbenannt)
+    const swallow = (ev: MouseEvent) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+    };
+    window.addEventListener('click', swallow, { capture: true, once: true });
+    setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
+    if (drop && st.to !== s.from) onDrop(s.id, st.to);
+  };
+
+  return {
+    draggingId: state?.id ?? null,
+    indicatorX: state ? state.indicatorX : null,
+    offsetFor: (id: string) => (state && state.id === id ? `translateX(${state.dx}px)` : undefined),
+    onPointerDown,
+    onPointerMove,
+    onPointerUp: (e: ReactPointerEvent<HTMLSpanElement>) => finish(e, true),
+    onPointerCancel: (e: ReactPointerEvent<HTMLSpanElement>) => finish(e, false),
   };
 }

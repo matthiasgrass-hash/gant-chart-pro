@@ -464,3 +464,23 @@ button.icon.danger:hover:not(:disabled) { color: #fff; background: var(--danger)
 }
 .row-grip { touch-action: none; color: var(--muted); cursor: grab; font-size: 14px; margin-left: -10px; width: 10px; opacity: 0; flex: none; user-select: none; }
 .task-list__row:hover .row-grip, .task-list__row.is-dragging .row-grip { opacity: 1; }
+
+/* Spaltenbreite ändern & Spalten verschieben */
+.col-head { cursor: grab; }
+.col-head.is-dragging { z-index: 6; opacity: 0.85; cursor: grabbing; background: var(--primary-soft); border-radius: 6px; box-shadow: 0 4px 14px var(--shadow); }
+.col-resize {
+  position: absolute;
+  top: -12px;
+  bottom: -12px;
+  right: -6px;
+  width: 9px;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 2;
+}
+.col-resize::after { content: ''; position: absolute; top: 25%; bottom: 25%; left: 4px; width: 1px; background: var(--border-strong); }
+.col-resize:hover::after, .col-resize:active::after { background: var(--primary); width: 3px; left: 3px; }
+.col-drop-indicator { position: absolute; top: 6px; bottom: 6px; width: 3px; border-radius: 2px; background: var(--primary); pointer-events: none; z-index: 7; }
+.col-delete { right: 6px; }
+.task-list__row > span[role='cell'] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-list__row > span.row-actions { overflow: visible; }

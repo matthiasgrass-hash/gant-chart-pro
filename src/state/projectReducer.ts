@@ -1,5 +1,6 @@
 import type { Column, Dependency, DependencyType, Project, Responsibility, Task } from '../types';
 import { wouldCreateCycle } from '../lib/graph';
+import { clampColumnWidth } from '../lib/columns';
 import { alignLags, initialLag, normalizeDates, schedule, snapToWorkdays, withDates } from '../lib/schedule';
 
 export type ProjectAction =
@@ -10,6 +11,8 @@ export type ProjectAction =
   | { type: 'deleteTask'; id: string }
   | { type: 'moveTask'; id: string; direction: -1 | 1 }
   | { type: 'reorderTask'; id: string; toIndex: number }
+  | { type: 'setColumnWidth'; id: string; width: number | null }
+  | { type: 'moveColumn'; id: string; toIndex: number }
   | { type: 'addDependency'; taskId: string; predecessorId: string; depType?: DependencyType }
   | { type: 'removeDependency'; taskId: string; predecessorId: string }
   | { type: 'addColumn'; column: Column }
@@ -126,6 +129,24 @@ export function projectReducer(state: Project, action: ProjectAction): Project {
           t.id === action.taskId ? alignLags({ ...t, dependencies: t.dependencies.filter((d) => d.taskId !== action.predecessorId) }, byId) : t,
         ),
       );
+    }
+    case 'setColumnWidth':
+      return {
+        ...state,
+        columns: state.columns.map((c) => {
+          if (c.id !== action.id) return c;
+          const { width: _w, ...rest } = c;
+          return action.width === null ? rest : { ...rest, width: clampColumnWidth(action.width) };
+        }),
+      };
+    case 'moveColumn': {
+      const from = state.columns.findIndex((c) => c.id === action.id);
+      const to = Math.max(0, Math.min(state.columns.length - 1, Math.round(action.toIndex)));
+      if (from < 0 || from === to) return state;
+      const columns = [...state.columns];
+      const [moved] = columns.splice(from, 1);
+      columns.splice(to, 0, moved);
+      return { ...state, columns };
     }
     case 'addColumn': {
       const { column } = action;

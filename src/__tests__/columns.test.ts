@@ -54,13 +54,38 @@ describe('Spalten', () => {
     expect(p.tasks[0].color).toBe(GE_COLOR);
   });
 
-  it('kaputte Spaltenangaben werden bereinigt, Aufgaben-Spalte steht vorne', () => {
+  it('kaputte Spaltenangaben werden bereinigt, Position der Aufgaben-Spalte bleibt', () => {
     const p = parseProject(
       JSON.stringify({
         columns: [{ id: 's', kind: 'start', label: 'S' }, { id: 's', kind: 'text', label: 'dup' }, { id: 'n', kind: 'name', label: 'Was' }, { id: 'z', kind: 'bogus' }],
         tasks: [],
       }),
     );
-    expect(p.columns).toEqual([{ id: 'n', kind: 'name', label: 'Was' }, { id: 's', kind: 'start', label: 'S' }, { id: 'responsibility', kind: 'responsibility', label: 'Zuständigkeit' }]);
+    expect(p.columns).toEqual([{ id: 's', kind: 'start', label: 'S' }, { id: 'n', kind: 'name', label: 'Was' }, { id: 'responsibility', kind: 'responsibility', label: 'Zuständigkeit' }]);
+  });
+});
+
+describe('Spaltenbreite und -reihenfolge', () => {
+  it('Breite setzen, begrenzen und zurücksetzen', () => {
+    let p = createSampleProject();
+    p = projectReducer(p, { type: 'setColumnWidth', id: 'start', width: 180.4 });
+    expect(p.columns.find((c) => c.id === 'start')!.width).toBe(180);
+    p = projectReducer(p, { type: 'setColumnWidth', id: 'start', width: 5 });
+    expect(p.columns.find((c) => c.id === 'start')!.width).toBe(44);
+    p = projectReducer(p, { type: 'setColumnWidth', id: 'start', width: null });
+    expect(p.columns.find((c) => c.id === 'start')!.width).toBeUndefined();
+  });
+  it('Spalten verschieben, auch die Aufgaben-Spalte', () => {
+    let p = createSampleProject();
+    p = projectReducer(p, { type: 'moveColumn', id: 'responsibility', toIndex: 1 });
+    expect(p.columns.map((c) => c.id)).toEqual(['name', 'responsibility', 'start', 'end', 'duration']);
+    p = projectReducer(p, { type: 'moveColumn', id: 'name', toIndex: 4 });
+    expect(p.columns.map((c) => c.id)).toEqual(['responsibility', 'start', 'end', 'duration', 'name']);
+  });
+  it('Breiten und Reihenfolge überstehen Export/Import', () => {
+    let p = createSampleProject();
+    p = projectReducer(p, { type: 'setColumnWidth', id: 'name', width: 320 });
+    p = projectReducer(p, { type: 'moveColumn', id: 'end', toIndex: 0 });
+    expect(parseProject(serializeProject(p)).columns).toEqual(p.columns);
   });
 });

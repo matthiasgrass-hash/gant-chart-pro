@@ -45,6 +45,8 @@ export interface Column {
   id: string;
   label: string;
   kind: ColumnKind;
+  /** Eigene Breite in Pixeln (fehlt = Standardbreite der Spaltenart) */
+  width?: number;
 }
 
 export interface Project {

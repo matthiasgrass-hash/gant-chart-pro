@@ -5,7 +5,7 @@ import { GE_COLOR } from './colors';
 import { alignLags } from './schedule';
 import { isValidTime, timeToFraction } from './worktime';
 import { wouldCreateCycle } from './graph';
-import { BUILTIN_COLUMNS, DEFAULT_COLUMNS } from './columns';
+import { BUILTIN_COLUMNS, DEFAULT_COLUMNS, clampColumnWidth } from './columns';
 
 export function serializeProject(project: Project): string {
   return JSON.stringify(project, null, 2);
@@ -123,12 +123,11 @@ function parseColumns(raw: unknown): Column[] {
     const fallback = BUILTIN_COLUMNS.find((d) => d.kind === kind)?.label ?? 'Spalte';
     seenIds.add(c.id);
     seenKinds.add(kind);
-    result.push({ id: c.id, kind, label: typeof c.label === 'string' && c.label.trim() ? c.label : fallback });
+    const width = typeof c.width === 'number' && Number.isFinite(c.width) ? clampColumnWidth(c.width) : undefined;
+    result.push({ id: c.id, kind, label: typeof c.label === 'string' && c.label.trim() ? c.label : fallback, ...(width ? { width } : {}) });
   }
-  // Die Aufgaben-Spalte muss immer vorhanden sein und steht vorne
-  const nameIndex = result.findIndex((c) => c.kind === 'name');
-  const name = nameIndex >= 0 ? result.splice(nameIndex, 1)[0] : { ...DEFAULT_COLUMNS[0] };
-  return [name, ...result];
+  // Die Aufgaben-Spalte muss immer vorhanden sein (Position frei wählbar; fehlt sie, kommt sie nach vorne)
+  return result.some((c) => c.kind === 'name') ? result : [{ ...DEFAULT_COLUMNS[0] }, ...result];
 }
 
 const DEP_TYPES: DependencyType[] = ['FS', 'SS', 'FF', 'SF'];
