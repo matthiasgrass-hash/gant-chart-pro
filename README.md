@@ -29,6 +29,11 @@ Pfingstmontag, Tag der Deutschen Einheit, 1. und 2. Weihnachtstag). Die Zeitachs
 alle Kalendertage; Wochenenden und Feiertage sind grau hinterlegt, Feiertage im Kopf lila markiert.
 Start und Ende liegen immer auf Arbeitstagen; beim Verschieben bleibt die Zahl der Arbeitstage gleich.
 
+**Halbe Tage / Uhrzeiten:** Optional lassen sich eine Startzeit („ab 12:00“) und eine Endzeit eintragen.
+Gerechnet wird mit der Arbeitszeit 08:00–16:00 (Start ab 12:00 = halber Tag). Die Dauer kann auch
+Bruchteile haben (0,5 / 2,5 Tage) – direkt in der Spalte „Tage“ oder im Dialog. Nachfolger starten genau
+zur Endzeit des Vorgängers; im Diagramm beginnen und enden die Balken entsprechend mitten im Tag.
+
 ## Loslegen
 
 ```bash
@@ -69,7 +74,7 @@ src/
   "calendar": "workdays",
   "name": "Mein Projekt",
   "tasks": [
-    { "id": "a", "name": "Konzept", "start": "2026-11-16", "end": "2026-11-20",
+    { "id": "a", "name": "Konzept", "start": "2026-11-16", "startTime": "12:00", "end": "2026-11-20",
       "progress": 50, "color": "#6022a7", "buffer": 2, "responsibility": "elektro",
       "dependencies": [{ "taskId": "x", "type": "SS", "lag": 2 }],
       "fields": { "owner": "Anna" } }

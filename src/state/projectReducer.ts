@@ -1,6 +1,6 @@
 import type { Column, Dependency, DependencyType, Project, Responsibility, Task } from '../types';
 import { wouldCreateCycle } from '../lib/graph';
-import { alignLags, initialLag, normalizeDates, schedule, snapToWorkdays } from '../lib/schedule';
+import { alignLags, initialLag, normalizeDates, schedule, snapToWorkdays, withDates } from '../lib/schedule';
 
 export type ProjectAction =
   | { type: 'load'; project: Project }
@@ -55,8 +55,7 @@ export function projectReducer(state: Project, action: ProjectAction): Project {
       return withTasks(state, [
         ...state.tasks,
         {
-          ...action.task,
-          ...snapToWorkdays(action.task.start, action.task.end),
+          ...withDates(action.task, snapToWorkdays(action.task)),
           dependencies: sanitizeDependencies(state, action.task.id, action.task.dependencies),
         },
       ]);
@@ -71,10 +70,11 @@ export function projectReducer(state: Project, action: ProjectAction): Project {
         if (b) next.buffer = b;
         else delete next.buffer;
       }
-      const datesChanged = (patch.start !== undefined && patch.start !== old.start) || (patch.end !== undefined && patch.end !== old.end);
+      const changed = (k: 'start' | 'end' | 'startTime' | 'endTime') => k in patch && patch[k] !== old[k];
+      const datesChanged = changed('start') || changed('end') || changed('startTime') || changed('endTime');
       // Selbst verschobene abhängige Aufgabe bleibt, wo sie hingelegt wurde: Versatz anpassen
       if (datesChanged) {
-        next = { ...next, ...normalizeDates(old, next.start, next.end) };
+        next = withDates(next, normalizeDates(old, next));
         next = alignLags(next, new Map(state.tasks.map((t) => [t.id, t])));
       }
       return withTasks(state, state.tasks.map((t) => (t.id === action.id ? next : t)));

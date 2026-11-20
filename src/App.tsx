@@ -5,6 +5,7 @@ import { loadProject, saveProject } from './lib/storage';
 import { DEFAULT_PROJECT_NAME, createSampleProject } from './lib/sample';
 import { addDays, toDayNumber, todayIso } from './lib/date';
 import { createId } from './lib/id';
+import { endFromPos, startPos } from './lib/worktime';
 import { ensureWritePermission, fileSaveSupported, isAbort, pickOpenFile, pickSaveFile, recallHandle, rememberHandle, writeFile, type FileHandle } from './lib/fileSave';
 import { endAfterWorkdays, nextWorkday } from './lib/workdays';
 import { GE_COLOR } from './lib/colors';
@@ -400,7 +401,8 @@ export default function App() {
           onRenameTask={(id, name) => dispatch({ type: 'updateTask', id, patch: { name } })}
           onSetDuration={(id, days) => {
             const task = project.tasks.find((t) => t.id === id);
-            if (task) dispatch({ type: 'updateTask', id, patch: { end: endAfterWorkdays(task.start, days) } });
+            // Start bleibt, Ende = Start + Dauer (auch halbe Tage, über Wochenenden/Feiertage)
+            if (task) dispatch({ type: 'updateTask', id, patch: { endTime: undefined, ...endFromPos(startPos(task) + days) } });
           }}
           onEdit={(task) => editTask(task.id)}
           onMove={(id, direction) => dispatch({ type: 'moveTask', id, direction })}

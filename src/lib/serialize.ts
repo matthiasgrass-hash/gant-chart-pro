@@ -3,6 +3,7 @@ import { defaultResponsibilities } from './responsibilities';
 import { isValidIso } from './date';
 import { GE_COLOR } from './colors';
 import { alignLags } from './schedule';
+import { isValidTime, timeToFraction } from './worktime';
 import { wouldCreateCycle } from './graph';
 import { BUILTIN_COLUMNS, DEFAULT_COLUMNS } from './columns';
 
@@ -45,6 +46,9 @@ export function parseProject(text: string): Project {
       color: typeof t.color === 'string' && HEX_RE.test(t.color) ? t.color : GE_COLOR,
       dependencies: parseDependencies(t.dependencies, legacy, t.id),
       fields: parseFields(t.fields),
+      // Uhrzeiten nur übernehmen, wenn sie vom ganzen Arbeitstag abweichen
+      ...(isValidTime(t.startTime) && timeToFraction(t.startTime, 0) > 0 ? { startTime: t.startTime } : {}),
+      ...(isValidTime(t.endTime) && timeToFraction(t.endTime, 1) < 1 ? { endTime: t.endTime } : {}),
       ...(typeof t.responsibility === 'string' && t.responsibility ? { responsibility: t.responsibility } : {}),
       ...(typeof t.buffer === 'number' && Number.isFinite(t.buffer) && t.buffer >= 1 ? { buffer: Math.round(t.buffer) } : {}),
     };

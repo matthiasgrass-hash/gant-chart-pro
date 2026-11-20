@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { Column, Dependency, DependencyType, Responsibility, Task } from '../types';
 import { TASK_COLORS } from '../lib/colors';
 import { formatDate, isValidIso } from '../lib/date';
-import { workDays } from '../lib/workdays';
+import { WORK_END_LABEL, WORK_START_LABEL, endFromPos, endPos, formatDays, parseDays, startPos, taskDuration, timeToFraction } from '../lib/worktime';
 import { useDraggable } from '../lib/useDraggable';
 import { DEPENDENCY_TYPES, initialLag, schedule } from '../lib/schedule';
 import { wouldCreateCycle } from '../lib/graph';
@@ -57,18 +57,19 @@ export function TaskDialog({ task, isNew, allTasks, columns, responsibilities, o
     update('dependencies', draft.dependencies.map((d) => (d.taskId === id ? { ...d, ...patch } : d)));
 
   // Vorschau: Wo landet die Aufgabe mit den eingestellten Abhängigkeiten?
-  const datesTouched = draft.start !== task.start || draft.end !== task.end;
+  const datesTouched = draft.start !== task.start || draft.end !== task.end || draft.startTime !== task.startTime || draft.endTime !== task.endTime;
+  const validDates = isValidIso(draft.start) && isValidIso(draft.end) && endPos(draft) > startPos(draft);
   const preview = useMemo(() => {
-    if (datesTouched || !draft.dependencies.length || !isValidIso(draft.start) || !isValidIso(draft.end) || draft.end < draft.start) return null;
+    if (datesTouched || !draft.dependencies.length || !validDates) return null;
     const planned = schedule([...allTasks.filter((t) => t.id !== task.id), draft]).find((t) => t.id === task.id)!;
-    return planned.start === draft.start ? null : planned;
+    return planned.start === draft.start && planned.startTime === draft.startTime ? null : planned;
   }, [allTasks, draft, task.id, datesTouched]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!draft.name.trim()) return setError('Bitte einen Namen eingeben.');
     if (!isValidIso(draft.start) || !isValidIso(draft.end)) return setError('Bitte gültige Daten eingeben.');
-    if (draft.end < draft.start) return setError('Das Ende darf nicht vor dem Start liegen.');
+    if (!validDates) return setError('Das Ende muss nach dem Start liegen.');
     const fields = Object.fromEntries(Object.entries(draft.fields ?? {}).filter(([, v]) => v.trim() !== ''));
     const respColor = resp && respColors[resp.id] && respColors[resp.id] !== resp.color ? { id: resp.id, color: respColors[resp.id] } : undefined;
     onSave({ ...draft, name: draft.name.trim(), fields }, respColor);
@@ -87,19 +88,41 @@ export function TaskDialog({ task, isNew, allTasks, columns, responsibilities, o
         </label>
 
         <div className="field-row">
-          <label className="field">
-            <span>Start</span>
-            <input type="date" value={draft.start} onChange={(e) => update('start', e.target.value)} required />
-          </label>
-          <label className="field">
-            <span>Ende</span>
-            <input type="date" value={draft.end} min={draft.start} onChange={(e) => update('end', e.target.value)} required />
-          </label>
           <div className="field">
-            <span>Dauer</span>
-            <output>{isValidIso(draft.start) && isValidIso(draft.end) && draft.end >= draft.start ? `${workDays(draft.start, draft.end)} Arbeitstage` : '–'}</output>
+            <span>Start</span>
+            <div className="date-time">
+              <input type="date" value={draft.start} onChange={(e) => update('start', e.target.value)} required aria-label="Startdatum" />
+              <TimeInput
+                value={draft.startTime}
+                placeholder={`ab ${WORK_START_LABEL}`}
+                label="Startzeit (optional)"
+                onChange={(v) => update('startTime', v && timeToFraction(v, 0) > 0 ? v : undefined)}
+              />
+            </div>
           </div>
+          <div className="field">
+            <span>Ende</span>
+            <div className="date-time">
+              <input type="date" value={draft.end} min={draft.start} onChange={(e) => update('end', e.target.value)} required aria-label="Enddatum" />
+              <TimeInput
+                value={draft.endTime}
+                placeholder={`bis ${WORK_END_LABEL}`}
+                label="Endzeit (optional)"
+                onChange={(v) => update('endTime', v && timeToFraction(v, 1) < 1 ? v : undefined)}
+              />
+            </div>
+          </div>
+          <label className="field">
+            <span>Dauer (AT)</span>
+            <DurationInput
+              value={validDates ? taskDuration(draft) : null}
+              onChange={(days) => setDraft((d) => ({ ...d, endTime: undefined, ...endFromPos(startPos(d) + days) }))}
+            />
+          </label>
         </div>
+        <small className="muted field-note">
+          Uhrzeit optional, z. B. Start ab 12:00 = halber Tag (Arbeitszeit {WORK_START_LABEL}–{WORK_END_LABEL}). Dauer auch als 0,5 oder 2,5 Tage.
+        </small>
 
         <label className="field field--inline">
           <span>Puffer nach Ende</span>
@@ -245,5 +268,63 @@ export function TaskDialog({ task, isNew, allTasks, columns, responsibilities, o
         </div>
       </form>
     </dialog>
+  );
+}
+
+/** Optionale Uhrzeit (leer = ganztägig) mit Knopf zum Zurücksetzen. */
+function TimeInput({ value, placeholder, label, onChange }: { value?: string; placeholder: string; label: string; onChange: (v: string | undefined) => void }) {
+  return (
+    <span className="time-input">
+      <input
+        type="time"
+        min={WORK_START_LABEL}
+        max={WORK_END_LABEL}
+        step={900}
+        value={value ?? ''}
+        aria-label={label}
+        title={value ? label : `${label} – leer = ${placeholder}`}
+        onChange={(e) => onChange(e.target.value || undefined)}
+      />
+      {value ? (
+        <button type="button" className="icon time-clear" title="Uhrzeit entfernen (ganztägig)" onClick={() => onChange(undefined)}>
+          ✕
+        </button>
+      ) : (
+        <span className="time-hint">{placeholder}</span>
+      )}
+    </span>
+  );
+}
+
+/** Dauer in Arbeitstagen, auch mit Komma (0,5 / 2,5). Übernahme beim Verlassen oder mit Enter. */
+function DurationInput({ value, onChange }: { value: number | null; onChange: (days: number) => void }) {
+  const [text, setText] = useState(value === null ? '' : formatDays(value));
+  const [focused, setFocused] = useState(false);
+  useEffect(() => {
+    if (!focused) setText(value === null ? '' : formatDays(value));
+  }, [value, focused]);
+  const commit = () => {
+    const n = parseDays(text);
+    if (n !== null && n > 0) onChange(n);
+    else setText(value === null ? '' : formatDays(value));
+  };
+  return (
+    <input
+      inputMode="decimal"
+      value={text}
+      onFocus={() => setFocused(true)}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => {
+        setFocused(false);
+        commit();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commit();
+        }
+      }}
+      aria-label="Dauer in Arbeitstagen"
+    />
   );
 }

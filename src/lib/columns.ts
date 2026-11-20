@@ -1,7 +1,7 @@
 import type { Column, ColumnKind, Responsibility, Task } from '../types';
 import { responsibilityName } from './responsibilities';
 import { formatDate } from './date';
-import { workDays } from './workdays';
+import { formatDays, taskDuration } from './worktime';
 
 export const BUILTIN_LABELS: Record<Exclude<ColumnKind, 'text'>, string> = {
   name: 'Aufgabe',
@@ -24,7 +24,7 @@ export const BUILTIN_COLUMNS: Column[] = [
 
 export const DEFAULT_COLUMNS: Column[] = BUILTIN_COLUMNS.slice(0, 5);
 
-export const COLUMN_WIDTH: Record<ColumnKind, number> = { name: 260, start: 104, end: 104, duration: 64, responsibility: 150, buffer: 70, text: 160 };
+export const COLUMN_WIDTH: Record<ColumnKind, number> = { name: 260, start: 140, end: 140, duration: 64, responsibility: 150, buffer: 70, text: 160 };
 
 export const ACTIONS_WIDTH = 96;
 
@@ -36,11 +36,11 @@ export function cellText(task: Task, column: Column, responsibilities: Responsib
     case 'name':
       return task.name;
     case 'start':
-      return formatDate(task.start);
+      return task.startTime ? `${formatDate(task.start)} ${task.startTime}` : formatDate(task.start);
     case 'end':
-      return formatDate(task.end);
+      return task.endTime ? `${formatDate(task.end)} ${task.endTime}` : formatDate(task.end);
     case 'duration':
-      return String(workDays(task.start, task.end));
+      return formatDays(taskDuration(task));
     case 'responsibility':
       return responsibilityName(task, responsibilities);
     case 'buffer':

@@ -1,5 +1,6 @@
 import type { DependencyType, Task, ViewMode } from '../types';
 import { holidayName, isNonWorking } from './workdays';
+import { timeToFraction } from './worktime';
 import { MONTHS_LONG, MONTHS_SHORT, WEEKDAYS_SHORT, dateParts, isoWeek, startOfMonth, startOfWeek, toDayNumber } from './date';
 
 export const ROW_HEIGHT = 46;
@@ -99,10 +100,11 @@ export function headerRows(range: TimelineRange, view: ViewMode): { top: HeaderC
   };
 }
 
+/** Balkenposition; Uhrzeiten verschieben Anfang/Ende innerhalb des Tages (z. B. ab 12:00 = Tagesmitte). */
 export function barGeometry(task: Task, range: TimelineRange, ppd: number) {
-  const x = (toDayNumber(task.start) - range.startDay) * ppd;
-  const width = (toDayNumber(task.end) - toDayNumber(task.start) + 1) * ppd;
-  return { x, width };
+  const x = (toDayNumber(task.start) - range.startDay + timeToFraction(task.startTime, 0)) * ppd;
+  const right = (toDayNumber(task.end) - range.startDay + timeToFraction(task.endTime, 1)) * ppd;
+  return { x, width: Math.max(right - x, ppd / 8) };
 }
 
 /** Pfad eines Abhängigkeitspfeils vom Ende des Vorgängers zum Start des Nachfolgers. */

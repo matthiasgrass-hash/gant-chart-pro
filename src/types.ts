@@ -21,6 +21,10 @@ export interface Task {
   start: string;
   /** Enddatum (inklusive), Format YYYY-MM-DD */
   end: string;
+  /** Optionale Startzeit am Starttag (HH:MM, innerhalb der Arbeitszeit); fehlt = ganztägig ab Arbeitsbeginn */
+  startTime?: string;
+  /** Optionale Endzeit am Endtag (HH:MM); fehlt = bis Arbeitsende */
+  endTime?: string;
   /** Fortschritt 0–100 */
   progress: number;
   color: string;

@@ -1,6 +1,6 @@
 import type { Dependency, DependencyType, Task } from '../types';
 import { toDayNumber } from './date';
-import { endAfterWorkdays, endIndex, isoFromWorkIndex, nextWorkday, previousWorkday, startIndex, workDays } from './workdays';
+import { MIN_DURATION, endFromPos, endPos, placeTask, roundPos, startFromPos, startPos, taskDuration } from './worktime';
 
 export const DEPENDENCY_TYPES: { type: DependencyType; short: string; label: string }[] = [
   { type: 'FS', short: 'EA', label: 'Ende → Anfang' },
@@ -24,26 +24,26 @@ export function bufferDays(task: Task): number {
   return task.buffer && task.buffer > 0 ? Math.round(task.buffer) : 0;
 }
 
-/** Dauer einer Aufgabe in Arbeitstagen (Mo–Fr ohne Feiertage). */
+/** Dauer einer Aufgabe in Arbeitstagen (Mo–Fr ohne Feiertage), auch Bruchteile wie 2,5. */
 export function taskWorkDays(task: Task): number {
-  return workDays(task.start, task.end);
+  return taskDuration(task);
 }
 
 /** Letzter Kalendertag des Puffers (Tagesnummer) oder null ohne Puffer. */
 export function bufferEndDay(task: Task): number | null {
   const b = bufferDays(task);
   if (!b) return null;
-  return toDayNumber(isoFromWorkIndex(endIndex(task.end) + b));
+  return toDayNumber(endFromPos(endPos(task) + b).end);
 }
 
 /**
- * Frühester Start (als Arbeitstag-Index), den diese Abhängigkeit für den Nachfolger erlaubt.
- * Gerechnet wird in Arbeitstagen mit exklusivem Ende (F = letzter Arbeitstag + 1).
+ * Frühester Start (Position in Arbeitstagen, mit Bruchteilen), den diese Abhängigkeit
+ * für den Nachfolger erlaubt. Endet der Vorgänger um 12:00, startet ein EA-Nachfolger um 12:00.
  */
 export function requiredStart(dep: Dependency, pred: Task, durationOfSuccessor: number): number {
-  const S = startIndex(pred.start);
+  const S = startPos(pred);
   // Puffer des Vorgängers verlängert sein Ende für alle ende-basierten Abhängigkeiten
-  const F = S + taskWorkDays(pred) + bufferDays(pred);
+  const F = endPos(pred) + bufferDays(pred);
   switch (dep.type) {
     case 'FS':
       return F + dep.lag;
@@ -56,9 +56,9 @@ export function requiredStart(dep: Dependency, pred: Task, durationOfSuccessor: 
   }
 }
 
-/** Start (Arbeitstag-Index), den die Abhängigkeiten vorgeben (Maximum), oder null ohne Vorgänger. */
+/** Start (Position), den die Abhängigkeiten vorgeben (Maximum), oder null ohne Vorgänger. */
 function constrainedStart(task: Task, byId: Map<string, Task>): number | null {
-  const dur = taskWorkDays(task);
+  const dur = taskDuration(task);
   let result: number | null = null;
   for (const dep of task.dependencies) {
     const pred = byId.get(dep.taskId);
@@ -66,14 +66,7 @@ function constrainedStart(task: Task, byId: Map<string, Task>): number | null {
     const r = requiredStart(dep, pred, dur);
     result = result === null ? r : Math.max(result, r);
   }
-  return result;
-}
-
-/** Aufgabe auf einen Arbeitstag-Index legen, Dauer in Arbeitstagen bleibt erhalten. */
-function moveTo(task: Task, index: number): Task {
-  const start = isoFromWorkIndex(index);
-  const end = isoFromWorkIndex(index + taskWorkDays(task) - 1);
-  return start === task.start && end === task.end ? task : { ...task, start, end };
+  return result === null ? null : roundPos(result);
 }
 
 /**
@@ -92,7 +85,7 @@ export function schedule(tasks: Task[]): Task[] {
     const task = byId.get(id)!;
     for (const dep of task.dependencies) if (byId.has(dep.taskId)) visit(dep.taskId);
     const start = constrainedStart(task, byId);
-    if (start !== null) byId.set(id, moveTo(task, start));
+    if (start !== null) byId.set(id, placeTask(task, start, taskDuration(task)));
     visiting.delete(id);
     done.add(id);
   };
@@ -108,36 +101,41 @@ export function schedule(tasks: Task[]): Task[] {
 export function alignLags(task: Task, byId: Map<string, Task>): Task {
   const required = constrainedStart(task, byId);
   if (required === null) return task;
-  const delta = startIndex(task.start) - required;
-  if (delta === 0) return task;
-  return { ...task, dependencies: task.dependencies.map((d) => (byId.has(d.taskId) ? { ...d, lag: d.lag + delta } : d)) };
+  const delta = roundPos(startPos(task) - required);
+  if (Math.abs(delta) < 1e-9) return task;
+  return { ...task, dependencies: task.dependencies.map((d) => (byId.has(d.taskId) ? { ...d, lag: roundPos(d.lag + delta) } : d)) };
 }
 
 /**
- * Neue Daten auf Arbeitstage legen. Wird die Aufgabe nur verschoben (Start und Ende um gleich
- * viele Kalendertage), bleibt ihre Dauer in Arbeitstagen erhalten. Sonst (Dauer geändert)
- * rutscht der Start auf den nächsten und das Ende auf den vorherigen Arbeitstag.
+ * Neue Daten/Uhrzeiten auf Arbeitszeit legen. Wird die Aufgabe nur verschoben (Start und Ende
+ * um gleich viele Kalendertage, Uhrzeiten unverändert), bleibt ihre Dauer erhalten. Sonst
+ * (Dauer geändert) gelten Start und Ende so, wie angegeben – Wochenenden/Feiertage übersprungen.
  */
-export function normalizeDates(old: Task, start: string, end: string): { start: string; end: string } {
-  const moved = toDayNumber(start) - toDayNumber(old.start);
-  if (moved !== 0 && moved === toDayNumber(end) - toDayNumber(old.end)) {
-    const s = nextWorkday(start);
-    return { start: s, end: endAfterWorkdays(s, taskWorkDays(old)) };
-  }
-  return snapToWorkdays(start, end);
+export function normalizeDates(old: Task, next: Pick<Task, 'start' | 'end' | 'startTime' | 'endTime'>): Pick<Task, 'start' | 'end' | 'startTime' | 'endTime'> {
+  const moved = toDayNumber(next.start) - toDayNumber(old.start);
+  const timesSame = next.startTime === old.startTime && next.endTime === old.endTime;
+  const S = startPos(next);
+  const isMove = timesSame && moved !== 0 && moved === toDayNumber(next.end) - toDayNumber(old.end);
+  const duration = isMove ? taskDuration(old) : Math.max(MIN_DURATION, roundPos(endPos(next) - S));
+  return { ...startFromPos(S), ...endFromPos(S + duration) };
 }
 
-/** Start auf den nächsten, Ende auf den vorherigen Arbeitstag legen (mind. 1 Arbeitstag). */
-export function snapToWorkdays(start: string, end: string): { start: string; end: string } {
-  const s = nextWorkday(start);
-  const e = previousWorkday(end);
-  return { start: s, end: e < s ? s : e };
+/** Start und Ende auf Arbeitszeit legen (für neue Aufgaben). */
+export function snapToWorkdays(task: Pick<Task, 'start' | 'end' | 'startTime' | 'endTime'>): Pick<Task, 'start' | 'end' | 'startTime' | 'endTime'> {
+  const S = startPos(task);
+  return { ...startFromPos(S), ...endFromPos(S + Math.max(MIN_DURATION, roundPos(endPos(task) - S))) };
 }
 
-/** Setzt Start/Ende einer Aufgabe (z. B. per Drag & Drop) und plant alle Nachfolger neu. */
+/** Datumsfelder setzen und dabei fehlende Uhrzeiten wirklich entfernen. */
+export function withDates(task: Task, d: Pick<Task, 'start' | 'end' | 'startTime' | 'endTime'>): Task {
+  const { startTime: _s, endTime: _e, ...rest } = task;
+  return { ...rest, start: d.start, end: d.end, ...(d.startTime ? { startTime: d.startTime } : {}), ...(d.endTime ? { endTime: d.endTime } : {}) };
+}
+
+/** Setzt Start/Ende einer Aufgabe (z. B. per Drag & Drop) und plant alle Nachfolger neu. Uhrzeiten bleiben erhalten. */
 export function setTaskDates(tasks: Task[], id: string, start: string, end: string): Task[] {
   const byId = new Map(tasks.map((t) => [t.id, t]));
-  return schedule(tasks.map((t) => (t.id === id ? alignLags({ ...t, ...normalizeDates(t, start, end) }, byId) : t)));
+  return schedule(tasks.map((t) => (t.id === id ? alignLags(withDates(t, normalizeDates(t, { ...t, start, end })), byId) : t)));
 }
 
 /**
@@ -146,6 +144,6 @@ export function setTaskDates(tasks: Task[], id: string, start: string, end: stri
  * verschoben (Versatz 0).
  */
 export function initialLag(task: Task, pred: Task, type: DependencyType): number {
-  const r = requiredStart({ taskId: pred.id, type, lag: 0 }, pred, taskWorkDays(task));
-  return Math.max(0, startIndex(task.start) - r);
+  const r = requiredStart({ taskId: pred.id, type, lag: 0 }, pred, taskDuration(task));
+  return Math.max(0, roundPos(startPos(task) - r));
 }

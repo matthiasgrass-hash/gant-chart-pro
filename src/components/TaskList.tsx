@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { Column, Responsibility, Task } from '../types';
 import { ACTIONS_WIDTH, COLUMN_WIDTH, cellText, isNumericColumn, missingBuiltins } from '../lib/columns';
 import { HEADER_HEIGHT, ROW_HEIGHT } from '../lib/timeline';
+import { parseDays } from '../lib/worktime';
 
 interface Props {
   tasks: Task[];
@@ -45,7 +46,7 @@ function InlineEdit({
   className?: string;
   onSave: (v: string) => void;
   autoEdit?: boolean;
-  /** Zahleneingabe (ganze Zahlen ≥ 1) */
+  /** Zahleneingabe (auch mit Komma, z. B. 2,5) */
   numeric?: boolean;
   /** wird beim Start der Bearbeitung aufgerufen, z. B. um die Zeile auszuwählen */
   onActivate?: () => void;
@@ -88,7 +89,7 @@ function InlineEdit({
     <input
       ref={ref}
       className={`inline-input${numeric ? ' inline-input--num' : ''}`}
-      {...(numeric ? { type: 'number', min: 1, step: 1, inputMode: 'numeric' as const } : {})}
+      {...(numeric ? { inputMode: 'decimal' as const } : {})}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
@@ -214,8 +215,9 @@ export function TaskList(p: Props) {
                     value={cellText(t, c)}
                     onActivate={() => p.onSelect(t.id)}
                     onSave={(v) => {
-                      const n = Math.round(Number(v));
-                      if (Number.isFinite(n) && n >= 1) p.onSetDuration(t.id, n);
+                      // auch halbe Tage: „2,5“ oder „0.5“
+                      const n = parseDays(v);
+                      if (n !== null && n > 0) p.onSetDuration(t.id, n);
                     }}
                   />
                 ) : (
